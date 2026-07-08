@@ -1,4 +1,4 @@
-const CACHE_NAME = "takoyaki-gacha-v1";
+const CACHE_NAME = "takoyaki-gacha-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -24,21 +24,18 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// stale-while-revalidate: 即座にキャッシュを返しつつ、裏で常に最新を取得してキャッシュを更新する
+// network-first: オンライン時は常に最新を取得して表示し、取得できない時だけキャッシュにフォールバックする
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   event.respondWith(
-    caches.open(CACHE_NAME).then(async (cache) => {
-      const cached = await cache.match(event.request);
-      const networkFetch = fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            cache.put(event.request, response.clone());
-          }
-          return response;
-        })
-        .catch(() => undefined);
-      return cached || (await networkFetch) || Response.error();
-    })
+    fetch(event.request)
+      .then((response) => {
+        if (response && response.status === 200) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request).then((cached) => cached || Response.error()))
   );
 });
