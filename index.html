@@ -265,9 +265,8 @@
       .ball .name{font-size:9.5px}
     }
     @media(min-width:821px){
-      .side{display:contents}
       .ranking-card{grid-column:1}
-      .side .card:not(.ranking-card){grid-column:2}
+      .side{grid-column:2;grid-row:2 / span 2}
     }
     @media (prefers-reduced-motion: reduce){
       *,*::before,*::after{animation:none!important;transition:none!important}
@@ -300,6 +299,11 @@
       </div>
     </section>
 
+    <section class="card ranking-card">
+      <h2>ランキング(トップ10)</h2>
+      <ol class="ranking" id="ranking"></ol>
+    </section>
+
     <aside class="side">
       <section class="card">
         <h2>操作</h2>
@@ -308,11 +312,6 @@
           <button class="action secondary" id="boostBtn">火力UP</button>
         </div>
         <p class="guide">クリック1回目で生地投入、2回目でくるっと回転、3回目以降は焼き加減に応じて回収。放置しすぎると焦げます。</p>
-      </section>
-
-      <section class="card ranking-card">
-        <h2>ランキング(トップ10)</h2>
-        <ol class="ranking" id="ranking"></ol>
       </section>
 
       <section class="card">
