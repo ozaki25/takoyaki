@@ -108,6 +108,67 @@
     .hole:hover{transform:translateY(-2px)}
     .hole:focus-visible{outline:3px solid var(--accent2);outline-offset:4px}
     .float-layer{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:6;border-radius:28px}
+    .stage-banner{
+      position:absolute;inset:0;
+      display:none;
+      align-items:center;justify-content:center;
+      flex-direction:column;
+      gap:10px;
+      text-align:center;
+      padding:24px;
+      background:rgba(20,16,12,.72);
+      border-radius:28px;
+      z-index:15;
+      cursor:pointer;
+    }
+    .stage-banner.show{display:flex}
+    .stage-banner .title{
+      font-size:clamp(28px,6vw,44px);
+      font-weight:900;
+      color:#fff8e6;
+      text-shadow:0 4px 12px rgba(0,0,0,.5);
+      animation:bannerPop .7s cubic-bezier(.2,1.4,.4,1) both;
+    }
+    .stage-banner .sub{
+      font-size:15px;
+      color:#fff8e6;
+      opacity:.9;
+      animation:bannerFade .5s ease .15s both;
+    }
+    .stage-banner .result-score{
+      font-size:clamp(36px,8vw,56px);
+      font-weight:900;
+      color:#ffd873;
+      text-shadow:0 4px 14px rgba(0,0,0,.5);
+      animation:bannerPop .7s cubic-bezier(.2,1.4,.4,1) both;
+    }
+    .stage-banner .chips{
+      display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:320px;
+    }
+    .stage-banner .chip{
+      font-size:22px;
+      background:rgba(255,255,255,.14);
+      border-radius:12px;
+      padding:6px 8px;
+      animation:chipPop .45s cubic-bezier(.2,1.4,.4,1) both;
+    }
+    .stage-banner .chip.star{
+      font-size:30px;
+      background:rgba(255,216,115,.25);
+      box-shadow:0 0 18px rgba(255,216,115,.6);
+    }
+    .stage-banner .hint{font-size:12px;color:#fff8e6;opacity:.75}
+    @keyframes bannerPop{
+      0%{opacity:0;transform:scale(.6)}
+      60%{opacity:1;transform:scale(1.08)}
+      100%{opacity:1;transform:scale(1)}
+    }
+    @keyframes bannerFade{from{opacity:0}to{opacity:.9}}
+    @keyframes chipPop{
+      0%{opacity:0;transform:scale(.3) translateY(10px)}
+      70%{opacity:1;transform:scale(1.15) translateY(0)}
+      100%{opacity:1;transform:scale(1) translateY(0)}
+    }
     .float-score{
       position:absolute;
       transform:translate(-50%,-50%);
@@ -362,6 +423,7 @@
       <div class="machine">
         <div class="griddle" id="griddle"></div>
         <div class="float-layer" id="floatLayer" aria-hidden="true"></div>
+        <div class="stage-banner" id="stageBanner"></div>
         <div class="status">
           <span id="heatLabel">火力：ふつう</span>
           <div class="heatbar" aria-hidden="true"><i id="heatBar"></i></div>
@@ -677,6 +739,23 @@
       try{ navigator.vibrate(pattern); }catch(e){}
     }
   }
+  let bannerTimer = null;
+  function hideStageBanner(){
+    clearTimeout(bannerTimer);
+    const el = $("stageBanner");
+    el.classList.remove("show");
+    el.innerHTML = "";
+  }
+  function showStageBanner(html, autoHideMs){
+    const el = $("stageBanner");
+    clearTimeout(bannerTimer);
+    el.innerHTML = html;
+    el.classList.add("show");
+    if(autoHideMs){
+      bannerTimer = setTimeout(hideStageBanner, autoHideMs);
+    }
+  }
+  $("stageBanner").addEventListener("click", hideStageBanner);
   function tapHole(index){
     if(!state.running) return setMessage("まずはスタートを押してね。");
     const h = state.holes[index];
@@ -744,6 +823,18 @@
       lastResult = { score: state.score, discovered, level: state.level, rank, rarest, date: new Date().toISOString() };
       const rankText = rank ? ` ランキング${rank}位にランクイン！` : "";
       setMessage(`閉店！ スコア${state.score}点、発見具材${discovered}種。${rankText}もう一回で伝説具材を狙おう！`);
+      const foundIngredients = ingredients.filter(i => state.seen.has(i.name));
+      const chipsHtml = foundIngredients.map((ing, idx) => {
+        const isStar = rarest && ing.name === rarest.name;
+        return `<span class="chip${isStar ? " star" : ""}" style="animation-delay:${idx * 70}ms">${ing.emoji}</span>`;
+      }).join("");
+      showStageBanner(`
+        <div class="title">閉店！</div>
+        <div class="result-score">${state.score}点</div>
+        <div class="sub">発見具材${discovered}種・レベル${state.level}${rankText}</div>
+        ${chipsHtml ? `<div class="chips">${chipsHtml}</div>` : ""}
+        <div class="hint">タップで閉じる</div>
+      `, 4500);
     }
     render();
   }
@@ -755,6 +846,7 @@
     scoreAnimCurrent = 0;
     $("score").textContent = 0;
     setMessage("開店！空いている穴をクリックして生地を流そう。");
+    showStageBanner(`<div class="title">開店！</div><div class="sub">生地を流して焼いていこう</div>`, 1100);
     state.tick = setInterval(tick, 1000);
     render();
   }
