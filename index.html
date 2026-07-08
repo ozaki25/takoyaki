@@ -187,6 +187,7 @@
     button.secondary{background:#2C2C2B;box-shadow:none}
     button.action:hover{filter:brightness(1.03);transform:translateY(-1px)}
     button.action:active{transform:translateY(0)}
+    .share-btn{width:100%;margin-top:10px}
     .guide{font-size:14px;color:var(--muted);line-height:1.55;margin:0}
     .collection{
       display:grid;
@@ -312,6 +313,7 @@
       <section class="card">
         <h2>今日の屋台メモ</h2>
         <div class="toast" id="message">スタートを押して、変わり種たこ焼きを焼こう！</div>
+        <button class="action secondary share-btn" id="shareBtn">結果をシェア</button>
         <div class="small">レベル2: レア具材 / レベル4: 激レア具材 / レベル6: 伝説具材</div>
       </section>
 
@@ -447,6 +449,31 @@
     const rank = top10.indexOf(entry);
     return rank >= 0 ? rank + 1 : null;
   }
+  function currentRank(score){
+    if(score <= 0) return null;
+    const list = loadHighScores();
+    const better = list.filter(e => e.score > score).length;
+    if(list.length < 10) return better + 1;
+    return better < 10 ? better + 1 : null;
+  }
+  async function shareResult(){
+    const discovered = state.seen.size;
+    const rank = currentRank(state.score);
+    const rankLine = rank ? `ランキング${rank}位！` : "";
+    const text = `🐙たこ焼き具材ガチャで${state.score}点！\n発見具材${discovered}種・レベル${state.level}${rankLine ? "・" + rankLine : ""}`;
+    const url = location.href.split("#")[0].split("?")[0];
+    if(navigator.share){
+      try{ await navigator.share({ title: "たこ焼き具材ガチャ", text, url }); }
+      catch(e){ /* ユーザーがキャンセルした場合など */ }
+      return;
+    }
+    try{
+      await navigator.clipboard.writeText(`${text}\n${url}`);
+      setMessage("結果をクリップボードにコピーしました！SNSなどに貼り付けてシェアしよう。");
+    }catch(e){
+      setMessage("コピーに失敗しました。お使いのブラウザは共有に対応していないかもしれません。");
+    }
+  }
   function levelCheck(){
     const next = Math.floor(state.score / 180) + 1;
     if(next > state.level){
@@ -515,6 +542,7 @@
     setMessage(state.heat === 1 ? "火力をふつうに戻した。" : "火力アップ！焦げやすいので急いで回収。");
     render();
   });
+  $("shareBtn").addEventListener("click", shareResult);
   state.holes = Array.from({length:12},()=>({ball:null, age:0, flipped:false}));
   render();
   renderRanking();
