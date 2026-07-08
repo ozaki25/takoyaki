@@ -105,6 +105,34 @@
     }
     .hole:hover{transform:translateY(-2px)}
     .hole:focus-visible{outline:3px solid var(--accent2);outline-offset:4px}
+    .float-layer{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:6;border-radius:28px}
+    .float-score{
+      position:absolute;
+      transform:translate(-50%,-50%);
+      font-weight:900;
+      font-size:22px;
+      color:#fff8e6;
+      text-shadow:0 2px 6px rgba(0,0,0,.55);
+      white-space:nowrap;
+      animation:floatUp .9s ease-out forwards;
+    }
+    .float-score.neg{color:#ff9d8a}
+    .float-score.rare{color:#c9a6ff}
+    .float-score.super{color:#7fc4ff}
+    .float-score.legendary{color:var(--legend);text-shadow:0 2px 6px rgba(0,0,0,.55),0 0 14px rgba(240,178,74,.85)}
+    .float-score.combo{font-size:27px;text-shadow:0 2px 6px rgba(0,0,0,.55),0 0 16px rgba(255,224,140,.9)}
+    @keyframes floatUp{
+      0%{opacity:0;transform:translate(-50%,-40%) scale(.7)}
+      15%{opacity:1;transform:translate(-50%,-70%) scale(1.15)}
+      100%{opacity:0;transform:translate(-50%,-190%) scale(1)}
+    }
+    .machine.combo-flash{animation:comboGlow .5s ease-out}
+    @keyframes comboGlow{
+      0%{box-shadow:inset 0 0 0 8px #58524b, inset 0 -16px 30px rgba(0,0,0,.35), 0 0 0 0 rgba(255,210,110,.85)}
+      100%{box-shadow:inset 0 0 0 8px #58524b, inset 0 -16px 30px rgba(0,0,0,.35), 0 0 46px 14px rgba(255,210,110,0)}
+    }
+    .pill b{transition:transform .15s ease, color .15s ease}
+    .pill b.pulse{color:var(--accent);transform:scale(1.15)}
     .ball{
       width:78%;
       height:78%;
@@ -293,6 +321,7 @@
     <section class="board-wrap" aria-label="たこ焼き鉄板">
       <div class="machine">
         <div class="griddle" id="griddle"></div>
+        <div class="float-layer" id="floatLayer" aria-hidden="true"></div>
         <div class="status">
           <span id="heatLabel">火力：ふつう</span>
           <div class="heatbar" aria-hidden="true"><i id="heatBar"></i></div>
@@ -355,6 +384,60 @@
   };
   const $ = id => document.getElementById(id);
   const griddle = $("griddle");
+  const floatLayer = $("floatLayer");
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let scoreAnimCurrent = 0;
+  let scoreRAF = null;
+  function animateScoreTo(target){
+    const scoreEl = $("score");
+    if(scoreAnimCurrent === target) return;
+    if(prefersReducedMotion){
+      scoreAnimCurrent = target;
+      scoreEl.textContent = target;
+      return;
+    }
+    const start = scoreAnimCurrent;
+    const startTime = performance.now();
+    const duration = Math.min(600, 150 + Math.abs(target - start) * 4);
+    scoreEl.classList.add("pulse");
+    cancelAnimationFrame(scoreRAF);
+    function step(now){
+      const t = Math.min(1, (now - startTime) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      scoreAnimCurrent = Math.round(start + (target - start) * eased);
+      scoreEl.textContent = scoreAnimCurrent;
+      if(t < 1){
+        scoreRAF = requestAnimationFrame(step);
+      }else{
+        scoreAnimCurrent = target;
+        scoreEl.textContent = target;
+        scoreEl.classList.remove("pulse");
+      }
+    }
+    scoreRAF = requestAnimationFrame(step);
+  }
+  function showFloatScore(index, amount, rarity, combo){
+    const holeEl = griddle.children[index];
+    if(!holeEl || !floatLayer) return;
+    const holeRect = holeEl.getBoundingClientRect();
+    const layerRect = floatLayer.getBoundingClientRect();
+    const el = document.createElement("div");
+    const rarityCls = amount > 0 && rarity && rarity !== "normal" ? " " + rarity : "";
+    el.className = "float-score" + (amount < 0 ? " neg" : rarityCls) + (combo > 1 && amount > 0 ? " combo" : "");
+    el.textContent = (amount > 0 ? "+" : "") + amount + "点";
+    el.style.left = (holeRect.left - layerRect.left + holeRect.width / 2) + "px";
+    el.style.top = (holeRect.top - layerRect.top + holeRect.height * 0.3) + "px";
+    floatLayer.appendChild(el);
+    el.addEventListener("animationend", () => el.remove());
+    setTimeout(() => el.remove(), 950);
+  }
+  function comboFlash(){
+    const machine = document.querySelector(".machine");
+    if(!machine) return;
+    machine.classList.remove("combo-flash");
+    void machine.offsetWidth;
+    machine.classList.add("combo-flash");
+  }
 
   function weightedPool(){
     const unlocked = ingredients.filter(i => i.unlock <= state.level);
@@ -391,7 +474,7 @@
   }
   function render(){
     $("level").textContent = state.level;
-    $("score").textContent = state.score;
+    animateScoreTo(state.score);
     $("coins").textContent = state.coins;
     $("timer").textContent = state.time;
     $("heatLabel").textContent = "火力：" + (state.heat === 1 ? "ふつう" : state.heat === 1.6 ? "強め" : "全開");
@@ -501,6 +584,7 @@
       setMessage("くるっと回転！いい香りがしてきた。");
     } else {
       const [cls, label] = stageName(h.age);
+      const rarity = h.ball.rarity;
       let gained = 0;
       if(cls === "ready"){ gained = h.ball.points; state.combo = 0; }
       if(cls === "perfect"){ state.combo += 1; gained = Math.round(h.ball.points * (1.6 + state.combo * .12)); }
@@ -509,12 +593,14 @@
       state.score = Math.max(0, state.score + gained);
       state.coins = Math.max(0, state.coins + Math.max(0, Math.floor(gained/5)));
       if(gained > 0){
-        const rareText = h.ball.rarity !== "normal" ? ` ${rarityLabel[h.ball.rarity]}具材ボーナス！` : "";
+        const rareText = rarity !== "normal" ? ` ${rarityLabel[rarity]}具材ボーナス！` : "";
         const comboText = state.combo > 1 ? ` <span class="combo">${state.combo}連続完璧！</span>` : "";
         setMessage(`${h.ball.emoji} ${h.ball.name}を${label}で提供！ +${gained}点${rareText}${comboText}`);
       } else {
         setMessage(cls === "raw" ? "まだ早かった… -5点" : "焦げちゃった… -12点");
       }
+      showFloatScore(index, gained, rarity, state.combo);
+      if(state.combo > 1) comboFlash();
       h.ball = null; h.age = 0; h.flipped = false;
       levelCheck();
     }
@@ -539,6 +625,8 @@
     Object.assign(state,{running:true, level:1, score:0, coins:0, time:60, heat:1, combo:0});
     state.holes = Array.from({length:12},()=>({ball:null, age:0, flipped:false}));
     state.seen = new Set();
+    scoreAnimCurrent = 0;
+    $("score").textContent = 0;
     setMessage("開店！空いている穴をクリックして生地を流そう。");
     state.tick = setInterval(tick, 1000);
     render();
