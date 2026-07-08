@@ -347,7 +347,7 @@
     }
     .ingredient{
       display:grid;
-      grid-template-columns:auto 1fr auto auto;
+      grid-template-columns:auto 1fr auto;
       gap:8px;
       align-items:center;
       border:1px solid var(--line);
@@ -356,7 +356,6 @@
       background:#F9F8F7;
       font-size:13px;
     }
-    .cook-tag{font-size:11px;color:var(--muted);white-space:nowrap}
     .rarity{font-size:11px;border-radius:999px;padding:2px 8px;background:#E5F2FC;color:#1b5e9f;font-weight:700}
     .rarity.rare{background:#efe9fb;color:#6e42bd}
     .rarity.legendary{background:#fff1c8;color:#8a5a00}
@@ -584,19 +583,6 @@
   function cookRate(ball, heat){
     return BASE_COOK_RATE * ball.speed * (1 + (heat - 1) * ball.heatFactor);
   }
-  function cookPaceLabel(ball){
-    const rate = cookRate(ball, HEAT_LEVELS[1].value); // 「強め」を基準に判定
-    if(rate < BASE_COOK_RATE * 1.4) return "ゆっくり";
-    if(rate > BASE_COOK_RATE * 1.9) return "はやい";
-    return "ふつう";
-  }
-  function cookProfileLabel(ball){
-    const pace = cookPaceLabel(ball);
-    let window = "";
-    if(ball.perfectWindow <= 0.7) window = "焦げやすい";
-    else if(ball.perfectWindow >= 1.4) window = "粘る";
-    return window ? `${pace}・${window}` : pace;
-  }
 
   function animateScoreTo(target){
     const scoreEl = $("score");
@@ -800,7 +786,7 @@
   function renderCollection(){
     const found = ingredients.filter(i => state.seen.has(i.name));
     $("collection").innerHTML = found.length ? found.map(i => {
-      return `<div class="ingredient"><span>${i.emoji}</span><strong>${i.name}</strong><span class="cook-tag">${cookProfileLabel(i)}</span><span class="rarity ${RARITY[i.rarity].badgeCls}">${RARITY[i.rarity].label}</span></div>`;
+      return `<div class="ingredient"><span>${i.emoji}</span><strong>${i.name}</strong><span class="rarity ${RARITY[i.rarity].badgeCls}">${RARITY[i.rarity].label}</span></div>`;
     }).join("") : `<div class="guide">まだ未発見。まずは焼いてみよう。</div>`;
   }
   function setMessage(text){ $("message").innerHTML = text; }
