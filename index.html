@@ -385,7 +385,7 @@
       <section class="card">
         <h2>今日の屋台メモ</h2>
         <div class="toast" id="message">スタートを押して、変わり種たこ焼きを焼こう！</div>
-        <button class="action secondary share-btn" id="shareBtn">結果をシェア</button>
+        <button class="action secondary share-btn" id="shareBtn" style="display:none">結果をシェア</button>
         <div class="small">レベル2: レア具材 / レベル4: 激レア具材 / レベル6: 伝説具材</div>
       </section>
 
@@ -547,6 +547,7 @@
     $("queue").textContent = "解放具材：" + ingredients.filter(i=>i.unlock<=state.level).length + "種";
     griddle.replaceChildren(...state.holes.map(renderHole));
     renderCollection();
+    $("shareBtn").style.display = (!state.running && lastResult) ? "" : "none";
   }
   function renderCollection(){
     const found = ingredients.filter(i => state.seen.has(i.name));
