@@ -641,10 +641,23 @@
     }
     render();
   }
+  const NEGLECT_AGE = 15;
+  const NEGLECT_PENALTY = 20;
   function tick(){
     if(!state.running) return;
     state.time -= 1;
-    state.holes.forEach(h => { if(h.ball) h.age += .72 * state.heat; });
+    state.holes.forEach((h, i) => {
+      if(!h.ball) return;
+      h.age += .72 * state.heat;
+      if(h.age >= NEGLECT_AGE){
+        state.score = Math.max(0, state.score - NEGLECT_PENALTY);
+        state.combo = 0;
+        showFloatScore(i, -NEGLECT_PENALTY, null, 0);
+        vibrate([40, 40, 40, 40]);
+        setMessage(`${h.ball.emoji} ${h.ball.name}が放置されすぎて炭になった…-${NEGLECT_PENALTY}点`);
+        h.ball = null; h.age = 0; h.flipped = false;
+      }
+    });
     if(state.time <= 0){
       state.running = false;
       clearInterval(state.tick);
