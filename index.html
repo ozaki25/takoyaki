@@ -226,8 +226,16 @@
       header{align-items:flex-start;flex-direction:column}
       .stats{justify-content:flex-start}
       .griddle{gap:10px}
-      .hole{min-height:74px}
-      .ball .emoji{font-size:22px}.ball .name{font-size:10px}
+      .hole{min-height:56px}
+      .ball{padding:5px}
+      .ball .emoji{font-size:20px;margin-bottom:1px}
+      .ball .name{font-size:10px;line-height:1.05}
+    }
+    @media(max-width:480px){
+      .griddle{grid-template-columns:repeat(3,1fr);gap:8px}
+      .ball{padding:4px}
+      .ball .emoji{font-size:19px}
+      .ball .name{font-size:9.5px}
     }
     @media (prefers-reduced-motion: reduce){
       *,*::before,*::after{animation:none!important;transition:none!important}
