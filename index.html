@@ -107,7 +107,7 @@
     }
     .hole:hover{transform:translateY(-2px)}
     .hole:focus-visible{outline:3px solid var(--accent2);outline-offset:4px}
-    .float-layer{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:6;border-radius:28px}
+    .float-layer{position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:6;border-radius:28px}
     .stage-banner{
       position:absolute;inset:0;
       display:none;
@@ -189,15 +189,16 @@
       15%{opacity:1;transform:translate(-50%,-70%) scale(1.15)}
       100%{opacity:0;transform:translate(-50%,-190%) scale(1)}
     }
-    .machine.combo-flash{animation:comboGlow .5s ease-out}
-    @keyframes comboGlow{
-      0%{box-shadow:inset 0 0 0 8px #58524b, inset 0 -16px 30px rgba(0,0,0,.35), 0 0 0 0 rgba(255,210,110,.85)}
-      100%{box-shadow:inset 0 0 0 8px #58524b, inset 0 -16px 30px rgba(0,0,0,.35), 0 0 46px 14px rgba(255,210,110,0)}
+    .machine.combo-flash{--flash-color:255,210,110;animation:machineFlash .5s ease-out}
+    .machine.danger-flash{--flash-color:210,64,48;animation:machineFlash .55s ease-out}
+    @keyframes machineFlash{
+      0%{box-shadow:inset 0 0 0 8px #58524b, inset 0 -16px 30px rgba(0,0,0,.35), 0 0 0 0 rgba(var(--flash-color),.85)}
+      100%{box-shadow:inset 0 0 0 8px #58524b, inset 0 -16px 30px rgba(0,0,0,.35), 0 0 48px 15px rgba(var(--flash-color),0)}
     }
-    .machine.danger-flash{animation:dangerGlow .55s ease-out}
-    @keyframes dangerGlow{
-      0%{box-shadow:inset 0 0 0 8px #58524b, inset 0 -16px 30px rgba(0,0,0,.35), 0 0 0 0 rgba(210,64,48,.85)}
-      100%{box-shadow:inset 0 0 0 8px #58524b, inset 0 -16px 30px rgba(0,0,0,.35), 0 0 50px 16px rgba(210,64,48,0)}
+    .hole.warn{animation:holeWarn .6s ease-in-out infinite}
+    @keyframes holeWarn{
+      0%,100%{box-shadow:inset 0 6px 14px rgba(0,0,0,.8),0 2px 0 rgba(255,255,255,.12), 0 0 0 0 rgba(224,90,50,.75)}
+      50%{box-shadow:inset 0 6px 14px rgba(0,0,0,.8),0 2px 0 rgba(255,255,255,.12), 0 0 0 5px rgba(224,90,50,0)}
     }
     .particle{
       position:absolute;
@@ -290,6 +291,7 @@
       width:auto;min-width:22px;padding:0 7px;border-radius:11px;
       background:rgba(255,216,115,.22);color:#ffd873;font-weight:800;font-size:11px;
     }
+    .tray-chip.overflow.bump{animation:chipPop .3s ease}
     .tray-fly{
       position:absolute;
       font-size:20px;
@@ -370,6 +372,7 @@
       font-size:13px;
     }
     .ranking li.new{border-color:var(--accent);background:#FBEBDE}
+    .ranking li.ranking-empty{border:none;background:none;color:var(--muted);grid-template-columns:1fr}
     .rank-badge{
       width:24px;height:24px;border-radius:50%;
       background:#dcdad6;color:#2C2C2B;font-weight:800;font-size:12px;
@@ -409,8 +412,7 @@
         box-shadow:0 -8px 24px rgba(80,48,18,.14);
         z-index:20;
       }
-      .controls-card{padding:0;border:none;background:none;box-shadow:none}
-      .controls-card h2, .controls-card .guide{display:none}
+      .controls-card h2{display:none}
     }
     @media(max-width:480px){
       .griddle{grid-template-columns:repeat(3,1fr);gap:8px}
@@ -482,7 +484,7 @@
       </section>
 
       <section class="card">
-        <h2>見つけた具材</h2>
+        <h2>見つけた具材(今回)</h2>
         <div class="collection" id="collection"></div>
       </section>
     </aside>
@@ -506,88 +508,122 @@
     {name:"金のタコ", emoji:"✨", rarity:"legendary", unlock:6, points:95},
     {name:"宇宙タコ", emoji:"🛸", rarity:"legendary", unlock:7, points:120}
   ];
-  const rarityLabel = {normal:"定番", rare:"レア", super:"激レア", legendary:"伝説"};
-  const state = {
-    running:false, level:1, score:0, coins:0, time:60, heat:1,
-    holes:[], seen:new Set(), combo:0, tick:null
+  const RARITY = {
+    normal:    { label:"定番",   weight:18, badgeCls:"",          rank:0 },
+    rare:      { label:"レア",   weight:7,  badgeCls:"rare",      rank:1 },
+    super:     { label:"激レア", weight:3,  badgeCls:"rare",      rank:2 },
+    legendary: { label:"伝説",   weight:1,  badgeCls:"legendary", rank:3 }
   };
+  const HOLE_COUNT = 12;
+  const HEAT_LEVELS = [
+    { value:1,    label:"ふつう", barWidth:35 },
+    { value:1.6,  label:"強め",   barWidth:68 },
+    { value:2.15, label:"全開",   barWidth:100 }
+  ];
+  const STAGE_RAW_MAX = 2;
+  const STAGE_READY_MAX = 4;
+  const STAGE_PERFECT_MAX = 6;
+  const RAW_PENALTY = -5;
+  const BURNT_PENALTY = -12;
+  const NEGLECT_AGE = 15;
+  const NEGLECT_WARN_AGE = NEGLECT_AGE - 4;
+  const NEGLECT_PENALTY = 20;
+  const LEVEL_SCORE_STEP = 180;
+  const TRAY_VISIBLE_CAP = 12;
+  const HIGHSCORE_KEY = "takoyakiGachaHighScores";
+
+  const state = {
+    running:false, level:1, score:0, coins:0, time:60, heat:HEAT_LEVELS[0].value,
+    holes:[], seen:new Set(), combo:0, tick:null, lastResult:null
+  };
+  const ui = {
+    scoreAnimCurrent:0, scoreRAF:null,
+    trayOverflowCount:0, bannerTimer:null,
+    restartArmed:false, restartArmTimer:null
+  };
+
   const $ = id => document.getElementById(id);
   const griddle = $("griddle");
   const floatLayer = $("floatLayer");
   const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  let scoreAnimCurrent = 0;
-  let scoreRAF = null;
+
+  function createHoles(){
+    return Array.from({length:HOLE_COUNT}, () => ({ ball:null, age:0, flipped:false }));
+  }
+  function holeCenterInLayer(index){
+    const holeEl = griddle.children[index];
+    if(!holeEl || !floatLayer) return null;
+    const holeRect = holeEl.getBoundingClientRect();
+    const layerRect = floatLayer.getBoundingClientRect();
+    return {
+      x: holeRect.left - layerRect.left + holeRect.width / 2,
+      y: holeRect.top - layerRect.top + holeRect.height / 2,
+      top: holeRect.top - layerRect.top,
+      height: holeRect.height
+    };
+  }
+  function currentHeatLevel(){
+    return HEAT_LEVELS.find(h => h.value === state.heat) || HEAT_LEVELS[0];
+  }
+
   function animateScoreTo(target){
     const scoreEl = $("score");
-    if(scoreAnimCurrent === target) return;
+    if(ui.scoreAnimCurrent === target) return;
     if(prefersReducedMotion){
-      scoreAnimCurrent = target;
+      ui.scoreAnimCurrent = target;
       scoreEl.textContent = target;
       return;
     }
-    const start = scoreAnimCurrent;
+    const start = ui.scoreAnimCurrent;
     const startTime = performance.now();
     const duration = Math.min(600, 150 + Math.abs(target - start) * 4);
     scoreEl.classList.add("pulse");
-    cancelAnimationFrame(scoreRAF);
+    cancelAnimationFrame(ui.scoreRAF);
     function step(now){
       const t = Math.min(1, (now - startTime) / duration);
       const eased = 1 - Math.pow(1 - t, 3);
-      scoreAnimCurrent = Math.round(start + (target - start) * eased);
-      scoreEl.textContent = scoreAnimCurrent;
+      ui.scoreAnimCurrent = Math.round(start + (target - start) * eased);
+      scoreEl.textContent = ui.scoreAnimCurrent;
       if(t < 1){
-        scoreRAF = requestAnimationFrame(step);
+        ui.scoreRAF = requestAnimationFrame(step);
       }else{
-        scoreAnimCurrent = target;
+        ui.scoreAnimCurrent = target;
         scoreEl.textContent = target;
         scoreEl.classList.remove("pulse");
       }
     }
-    scoreRAF = requestAnimationFrame(step);
+    ui.scoreRAF = requestAnimationFrame(step);
   }
   function showFloatScore(index, amount, rarity, combo){
-    const holeEl = griddle.children[index];
-    if(!holeEl || !floatLayer) return;
-    const holeRect = holeEl.getBoundingClientRect();
-    const layerRect = floatLayer.getBoundingClientRect();
+    const c = holeCenterInLayer(index);
+    if(!c) return;
     const el = document.createElement("div");
     const rarityCls = amount > 0 && rarity && rarity !== "normal" ? " " + rarity : "";
     el.className = "float-score" + (amount < 0 ? " neg" : rarityCls) + (combo > 1 && amount > 0 ? " combo" : "");
     el.textContent = (amount > 0 ? "+" : "") + amount + "点";
-    el.style.left = (holeRect.left - layerRect.left + holeRect.width / 2) + "px";
-    el.style.top = (holeRect.top - layerRect.top + holeRect.height * 0.3) + "px";
+    el.style.left = c.x + "px";
+    el.style.top = (c.top + c.height * 0.3) + "px";
     floatLayer.appendChild(el);
     el.addEventListener("animationend", () => el.remove());
     setTimeout(() => el.remove(), 950);
   }
-  function comboFlash(){
+  function flashMachine(cls){
     const machine = document.querySelector(".machine");
     if(!machine) return;
-    machine.classList.remove("combo-flash");
+    machine.classList.remove(cls);
     void machine.offsetWidth;
-    machine.classList.add("combo-flash");
-  }
-  function dangerFlash(){
-    const machine = document.querySelector(".machine");
-    if(!machine) return;
-    machine.classList.remove("danger-flash");
-    void machine.offsetWidth;
-    machine.classList.add("danger-flash");
+    machine.classList.add(cls);
   }
   function spawnParticles(index, count, kind){
-    const holeEl = griddle.children[index];
-    if(!holeEl || !floatLayer) return;
-    const holeRect = holeEl.getBoundingClientRect();
-    const layerRect = floatLayer.getBoundingClientRect();
-    const cx = holeRect.left - layerRect.left + holeRect.width / 2;
-    const cy = holeRect.top - layerRect.top + holeRect.height / 2;
+    const c = holeCenterInLayer(index);
+    if(!c) return;
     for(let i = 0; i < count; i++){
       const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
       const dist = 22 + Math.random() * 22;
       const p = document.createElement("div");
       p.className = "particle " + kind;
-      p.style.left = cx + "px";
-      p.style.top = cy + "px";
+      p.style.left = c.x + "px";
+      p.style.top = c.y + "px";
       p.style.setProperty("--dx", Math.cos(angle) * dist + "px");
       p.style.setProperty("--dy", Math.sin(angle) * dist + "px");
       floatLayer.appendChild(p);
@@ -595,10 +631,8 @@
       setTimeout(() => p.remove(), 800);
     }
   }
-  const TRAY_VISIBLE_CAP = 12;
-  let trayOverflowCount = 0;
   function resetTray(){
-    trayOverflowCount = 0;
+    ui.trayOverflowCount = 0;
     const trayEl = $("tray");
     if(trayEl) trayEl.innerHTML = "";
   }
@@ -611,7 +645,7 @@
       badge.className = "tray-chip overflow";
       trayEl.prepend(badge);
     }
-    badge.textContent = "+" + trayOverflowCount;
+    badge.textContent = "+" + ui.trayOverflowCount;
     badge.classList.remove("bump");
     void badge.offsetWidth;
     badge.classList.add("bump");
@@ -626,29 +660,24 @@
     const chips = trayEl.querySelectorAll(".tray-chip:not(.overflow)");
     if(chips.length > TRAY_VISIBLE_CAP - 1){
       chips[0].remove();
-      trayOverflowCount++;
+      ui.trayOverflowCount++;
       updateOverflowBadge();
     }
   }
   function flyToTray(index, emoji){
-    const holeEl = griddle.children[index];
     const trayEl = $("tray");
-    if(!holeEl || !trayEl || !floatLayer){
+    const c = holeCenterInLayer(index);
+    if(!c || !trayEl || prefersReducedMotion){
       commitTrayItem(emoji);
       return;
     }
-    const holeRect = holeEl.getBoundingClientRect();
     const layerRect = floatLayer.getBoundingClientRect();
     const trayRect = trayEl.getBoundingClientRect();
-    if(prefersReducedMotion){
-      commitTrayItem(emoji);
-      return;
-    }
     const fly = document.createElement("div");
     fly.className = "tray-fly";
     fly.textContent = emoji;
-    fly.style.left = (holeRect.left - layerRect.left + holeRect.width / 2) + "px";
-    fly.style.top = (holeRect.top - layerRect.top + holeRect.height / 2) + "px";
+    fly.style.left = c.x + "px";
+    fly.style.top = c.y + "px";
     floatLayer.appendChild(fly);
     requestAnimationFrame(() => {
       fly.style.left = (trayRect.right - layerRect.left - 10) + "px";
@@ -671,8 +700,7 @@
     const unlocked = ingredients.filter(i => i.unlock <= state.level);
     const bag = [];
     unlocked.forEach(i => {
-      const weight = i.rarity === "normal" ? 18 : i.rarity === "rare" ? 7 : i.rarity === "super" ? 3 : 1;
-      for(let n=0;n<weight;n++) bag.push(i);
+      for(let n = 0; n < RARITY[i.rarity].weight; n++) bag.push(i);
     });
     return bag;
   }
@@ -681,12 +709,12 @@
     return pool[Math.floor(Math.random()*pool.length)];
   }
   function stageName(age){
-    if(age < 2) return ["raw","まだ生"];
-    if(age < 4) return ["ready","こんがり"];
-    if(age < 6) return ["perfect","完璧"];
+    if(age < STAGE_RAW_MAX) return ["raw","まだ生"];
+    if(age < STAGE_READY_MAX) return ["ready","こんがり"];
+    if(age < STAGE_PERFECT_MAX) return ["perfect","完璧"];
     return ["burnt","焦げ"];
   }
-  const holeEls = Array.from({length:12}, (_, i) => {
+  const holeEls = createHoles().map((_, i) => {
     const btn = document.createElement("button");
     btn.className = "hole";
     btn.dataset.state = "";
@@ -707,7 +735,7 @@
       return;
     }
     const [cls, label] = stageName(h.age);
-    const className = "ball " + cls + " " + (h.ball.rarity === "super" ? "rare" : h.ball.rarity);
+    const className = "ball " + cls + " " + RARITY[h.ball.rarity].badgeCls;
     const html = `<span><span class="emoji">${h.ball.emoji}</span><span class="name">${h.ball.name}<br>${label}</span></span>`;
     const isNewBall = prevKey === "empty" || prevKey === "";
     const existingBall = !isNewBall && btn.querySelector(".ball");
@@ -723,27 +751,27 @@
     }
   }
   function render(){
+    const heatLevel = currentHeatLevel();
     $("level").textContent = state.level;
     animateScoreTo(state.score);
     $("coins").textContent = state.coins;
     $("timer").textContent = state.time;
-    $("heatLabel").textContent = "火力：" + (state.heat === 1 ? "ふつう" : state.heat === 1.6 ? "強め" : "全開");
-    $("heatBar").style.width = (state.heat === 1 ? 35 : state.heat === 1.6 ? 68 : 100) + "%";
+    $("heatLabel").textContent = "火力：" + heatLevel.label;
+    $("heatBar").style.width = heatLevel.barWidth + "%";
+    $("boostBtn").textContent = state.heat === HEAT_LEVELS[HEAT_LEVELS.length - 1].value ? "火力を戻す" : "火力UP";
     $("queue").textContent = "解放具材：" + ingredients.filter(i=>i.unlock<=state.level).length + "種";
     state.holes.forEach((h, i) => updateHole(h, i));
     renderCollection();
-    $("shareBtn").style.display = (!state.running && lastResult) ? "" : "none";
+    $("shareBtn").style.display = (!state.running && state.lastResult) ? "" : "none";
   }
   function renderCollection(){
     const found = ingredients.filter(i => state.seen.has(i.name));
     $("collection").innerHTML = found.length ? found.map(i => {
-      const cls = i.rarity === "normal" ? "" : i.rarity === "legendary" ? "legendary" : "rare";
-      return `<div class="ingredient"><span>${i.emoji}</span><strong>${i.name}</strong><span class="rarity ${cls}">${rarityLabel[i.rarity]}</span></div>`;
+      return `<div class="ingredient"><span>${i.emoji}</span><strong>${i.name}</strong><span class="rarity ${RARITY[i.rarity].badgeCls}">${RARITY[i.rarity].label}</span></div>`;
     }).join("") : `<div class="guide">まだ未発見。まずは焼いてみよう。</div>`;
   }
   function setMessage(text){ $("message").innerHTML = text; }
 
-  const HIGHSCORE_KEY = "takoyakiGachaHighScores";
   function loadHighScores(){
     try{
       const list = JSON.parse(localStorage.getItem(HIGHSCORE_KEY) || "[]");
@@ -766,7 +794,7 @@
     const list = loadHighScores();
     const rankingEl = $("ranking");
     if(!list.length){
-      rankingEl.innerHTML = `<li style="border:none;background:none;color:var(--muted);grid-template-columns:1fr">まだ記録がありません。プレイしてスコアを残そう！</li>`;
+      rankingEl.innerHTML = `<li class="ranking-empty">まだ記録がありません。プレイしてスコアを残そう！</li>`;
       return;
     }
     rankingEl.innerHTML = list.map((entry, i) => {
@@ -789,25 +817,23 @@
     const rank = top10.indexOf(entry);
     return rank >= 0 ? rank + 1 : null;
   }
-  const rarityRank = { normal: 0, rare: 1, super: 2, legendary: 3 };
   function findRarestSeen(seenSet){
     let best = null;
     seenSet.forEach(name => {
       const ing = ingredients.find(i => i.name === name);
-      if(ing && (!best || rarityRank[ing.rarity] > rarityRank[best.rarity])) best = ing;
+      if(ing && (!best || RARITY[ing.rarity].rank > RARITY[best.rarity].rank)) best = ing;
     });
     return best;
   }
-  let lastResult = null;
   async function shareResult(){
-    if(!lastResult){
+    if(!state.lastResult){
       setMessage("まずは1回プレイしてから結果をシェアしよう！");
       return;
     }
-    const { score, discovered, level, rank, rarest } = lastResult;
+    const { score, discovered, level, rank, rarest } = state.lastResult;
     const rankLine = rank ? `ランキング${rank}位！` : "";
     const rareLine = rarest && rarest.rarity !== "normal"
-      ? `\n最高レア具材: ${rarest.emoji}${rarest.name}(${rarityLabel[rarest.rarity]})`
+      ? `\n最高レア具材: ${rarest.emoji}${rarest.name}(${RARITY[rarest.rarity].label})`
       : "";
     const url = location.href.split("#")[0].split("?")[0];
     const text = `🐙たこ焼き具材ガチャで${score}点！\n発見具材${discovered}種・レベル${level}${rankLine ? "・" + rankLine : ""}${rareLine}\n${url}`;
@@ -826,7 +852,7 @@
     }
   }
   function levelCheck(){
-    const next = Math.floor(state.score / 180) + 1;
+    const next = Math.floor(state.score / LEVEL_SCORE_STEP) + 1;
     if(next > state.level){
       state.level = next;
       setMessage(`レベル${state.level}にアップ！ 新しい具材が屋台に届きました。`);
@@ -837,20 +863,19 @@
       try{ navigator.vibrate(pattern); }catch(e){}
     }
   }
-  let bannerTimer = null;
   function hideStageBanner(){
-    clearTimeout(bannerTimer);
+    clearTimeout(ui.bannerTimer);
     const el = $("stageBanner");
     el.classList.remove("show");
     el.innerHTML = "";
   }
   function showStageBanner(html, autoHideMs){
     const el = $("stageBanner");
-    clearTimeout(bannerTimer);
+    clearTimeout(ui.bannerTimer);
     el.innerHTML = html;
     el.classList.add("show");
     if(autoHideMs){
-      bannerTimer = setTimeout(hideStageBanner, autoHideMs);
+      ui.bannerTimer = setTimeout(hideStageBanner, autoHideMs);
     }
   }
   $("stageBanner").addEventListener("click", hideStageBanner);
@@ -869,96 +894,125 @@
     } else {
       const [cls, label] = stageName(h.age);
       const rarity = h.ball.rarity;
+      const emoji = h.ball.emoji;
+      const name = h.ball.name;
       let gained = 0;
       if(cls === "ready"){ gained = h.ball.points; state.combo = 0; }
       if(cls === "perfect"){ state.combo += 1; gained = Math.round(h.ball.points * (1.6 + state.combo * .12)); }
-      if(cls === "raw"){ gained = -5; state.combo = 0; }
-      if(cls === "burnt"){ gained = -12; state.combo = 0; }
+      if(cls === "raw"){ gained = RAW_PENALTY; state.combo = 0; }
+      if(cls === "burnt"){ gained = BURNT_PENALTY; state.combo = 0; }
       state.score = Math.max(0, state.score + gained);
       state.coins = Math.max(0, state.coins + Math.max(0, Math.floor(gained/5)));
+      const isSpecial = cls === "perfect" || rarity !== "normal";
       if(gained > 0){
-        const rareText = rarity !== "normal" ? ` ${rarityLabel[rarity]}具材ボーナス！` : "";
+        const rareText = rarity !== "normal" ? ` ${RARITY[rarity].label}具材ボーナス！` : "";
         const comboText = state.combo > 1 ? ` <span class="combo">${state.combo}連続完璧！</span>` : "";
-        setMessage(`${h.ball.emoji} ${h.ball.name}を${label}で提供！ +${gained}点${rareText}${comboText}`);
+        setMessage(`${emoji} ${name}を${label}で提供！ +${gained}点${rareText}${comboText}`);
         vibrate(cls === "perfect" ? (state.combo > 1 ? [15, 40, 15, 40, 30] : [10, 50, 20]) : 15);
       } else {
-        setMessage(cls === "raw" ? "まだ早かった… -5点" : "焦げちゃった… -12点");
+        setMessage(cls === "raw" ? `まだ早かった… ${gained}点` : `焦げちゃった… ${gained}点`);
         vibrate([30, 30, 30]);
       }
       showFloatScore(index, gained, rarity, state.combo);
-      spawnParticles(index, gained > 0 ? (rarity !== "normal" ? 9 : 6) : 4, gained > 0 ? "spark" : "smoke");
-      if(gained > 0) flyToTray(index, h.ball.emoji);
-      if(state.combo > 1) comboFlash();
+      if(gained > 0){
+        if(isSpecial) spawnParticles(index, rarity !== "normal" ? 9 : 6, "spark");
+        flyToTray(index, emoji);
+      }else{
+        spawnParticles(index, 4, "smoke");
+      }
+      if(state.combo > 1) flashMachine("combo-flash");
+      holeEls[index].classList.remove("warn");
       h.ball = null; h.age = 0; h.flipped = false;
       levelCheck();
     }
     render();
   }
-  const NEGLECT_AGE = 15;
-  const NEGLECT_PENALTY = 20;
+  function endGame(){
+    state.running = false;
+    clearInterval(state.tick);
+    const discovered = state.seen.size;
+    const rank = recordScore(state.score, discovered);
+    const rarest = findRarestSeen(state.seen);
+    state.lastResult = { score: state.score, discovered, level: state.level, rank, rarest, date: new Date().toISOString() };
+    const rankText = rank ? ` ランキング${rank}位にランクイン！` : "";
+    setMessage(`閉店！ スコア${state.score}点、発見具材${discovered}種。${rankText}もう一回で伝説具材を狙おう！`);
+    const foundIngredients = ingredients.filter(i => state.seen.has(i.name));
+    const chipsHtml = foundIngredients.map((ing, idx) => {
+      const isStar = rarest && ing.name === rarest.name;
+      return `<span class="chip${isStar ? " star" : ""}" style="animation-delay:${idx * 70}ms">${ing.emoji}</span>`;
+    }).join("");
+    showStageBanner(`
+      <div class="title">閉店！</div>
+      <div class="result-score">${state.score}点</div>
+      <div class="sub">発見具材${discovered}種・レベル${state.level}${rankText}</div>
+      ${chipsHtml ? `<div class="chips">${chipsHtml}</div>` : ""}
+      <div class="hint">タップで閉じる</div>
+    `);
+  }
   function tick(){
     if(!state.running) return;
     state.time -= 1;
     state.holes.forEach((h, i) => {
-      if(!h.ball) return;
+      if(!h.ball){
+        holeEls[i].classList.remove("warn");
+        return;
+      }
       h.age += .72 * state.heat;
       if(h.age >= NEGLECT_AGE){
         state.score = Math.max(0, state.score - NEGLECT_PENALTY);
         state.combo = 0;
         showFloatScore(i, -NEGLECT_PENALTY, null, 0);
         spawnParticles(i, 10, "ash");
-        dangerFlash();
+        flashMachine("danger-flash");
         vibrate([40, 40, 40, 40]);
         setMessage(`${h.ball.emoji} ${h.ball.name}が放置されすぎて炭になった…-${NEGLECT_PENALTY}点`);
         h.ball = null; h.age = 0; h.flipped = false;
+        holeEls[i].classList.remove("warn");
+      }else{
+        holeEls[i].classList.toggle("warn", h.age >= NEGLECT_WARN_AGE);
       }
     });
     if(state.time <= 0){
-      state.running = false;
-      clearInterval(state.tick);
-      const discovered = state.seen.size;
-      const rank = recordScore(state.score, discovered);
-      const rarest = findRarestSeen(state.seen);
-      lastResult = { score: state.score, discovered, level: state.level, rank, rarest, date: new Date().toISOString() };
-      const rankText = rank ? ` ランキング${rank}位にランクイン！` : "";
-      setMessage(`閉店！ スコア${state.score}点、発見具材${discovered}種。${rankText}もう一回で伝説具材を狙おう！`);
-      const foundIngredients = ingredients.filter(i => state.seen.has(i.name));
-      const chipsHtml = foundIngredients.map((ing, idx) => {
-        const isStar = rarest && ing.name === rarest.name;
-        return `<span class="chip${isStar ? " star" : ""}" style="animation-delay:${idx * 70}ms">${ing.emoji}</span>`;
-      }).join("");
-      showStageBanner(`
-        <div class="title">閉店！</div>
-        <div class="result-score">${state.score}点</div>
-        <div class="sub">発見具材${discovered}種・レベル${state.level}${rankText}</div>
-        ${chipsHtml ? `<div class="chips">${chipsHtml}</div>` : ""}
-        <div class="hint">タップで閉じる</div>
-      `);
+      endGame();
     }
     render();
   }
   function start(){
     clearInterval(state.tick);
-    Object.assign(state,{running:true, level:1, score:0, coins:0, time:60, heat:1, combo:0});
-    state.holes = Array.from({length:12},()=>({ball:null, age:0, flipped:false}));
+    Object.assign(state,{running:true, level:1, score:0, coins:0, time:60, heat:HEAT_LEVELS[0].value, combo:0});
+    state.holes = createHoles();
     state.seen = new Set();
-    scoreAnimCurrent = 0;
+    ui.scoreAnimCurrent = 0;
     $("score").textContent = 0;
     resetTray();
+    holeEls.forEach(el => el.classList.remove("warn"));
     setMessage("開店！空いている穴をクリックして生地を流そう。");
     showStageBanner(`<div class="title">開店！</div><div class="sub">生地を流して焼いていこう</div>`, 1100);
     state.tick = setInterval(tick, 1000);
     render();
   }
-  $("startBtn").addEventListener("click", start);
+  $("startBtn").addEventListener("click", () => {
+    if(state.running && !ui.restartArmed){
+      ui.restartArmed = true;
+      setMessage("プレイ中です。やり直す場合はもう一度「スタート」を押してね。");
+      clearTimeout(ui.restartArmTimer);
+      ui.restartArmTimer = setTimeout(() => { ui.restartArmed = false; }, 3000);
+      return;
+    }
+    ui.restartArmed = false;
+    clearTimeout(ui.restartArmTimer);
+    start();
+  });
   $("boostBtn").addEventListener("click", () => {
     if(!state.running) return setMessage("開店してから火力を上げられるよ。");
-    state.heat = state.heat === 1 ? 1.6 : state.heat === 1.6 ? 2.15 : 1;
-    setMessage(state.heat === 1 ? "火力をふつうに戻した。" : "火力アップ！焦げやすいので急いで回収。");
+    const idx = HEAT_LEVELS.findIndex(h => h.value === state.heat);
+    const next = HEAT_LEVELS[(idx + 1) % HEAT_LEVELS.length];
+    state.heat = next.value;
+    setMessage(state.heat === HEAT_LEVELS[0].value ? "火力をふつうに戻した。" : "火力アップ！焦げやすいので急いで回収。");
     render();
   });
   $("shareBtn").addEventListener("click", shareResult);
-  state.holes = Array.from({length:12},()=>({ball:null, age:0, flipped:false}));
+  state.holes = createHoles();
   render();
   renderRanking();
 
