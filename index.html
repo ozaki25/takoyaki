@@ -504,22 +504,24 @@
 
 <script>
 (() => {
-  // speed: 基礎の焼け速さ(1.0が基準)。heatFactor: 火力を上げた時にどれだけ余計に速く進むか(1.0が基準、大きいほど高火力で一気に焦げやすい)
+  // speed: 基礎の焼け速さ(1.0が基準)。heatFactor: 火力を上げた時にどれだけ余計に速く進むか(1.0が基準)。
+  // perfectWindow: 完璧の期間の広さ(1.0が基準、大きいほど粘り焦げにくい、小さいほど一瞬で焦げる)
+  // 得点が高い(レアな)具材ほど焼くのが難しくなるよう、得点と相関させて調整している
   const ingredients = [
-    {name:"タコ",     emoji:"🐙", rarity:"normal",    unlock:1, points:12,  speed:1.00, heatFactor:1.00},
-    {name:"チーズ",   emoji:"🧀", rarity:"normal",    unlock:1, points:13,  speed:1.10, heatFactor:1.40},
-    {name:"もち",     emoji:"🍡", rarity:"normal",    unlock:1, points:14,  speed:1.15, heatFactor:0.90},
-    {name:"ねぎ",     emoji:"🌿", rarity:"normal",    unlock:1, points:12,  speed:1.20, heatFactor:1.30},
-    {name:"明太子",   emoji:"🔴", rarity:"normal",    unlock:1, points:15,  speed:1.25, heatFactor:1.20},
-    {name:"キムチ",   emoji:"🌶️", rarity:"rare",      unlock:2, points:24,  speed:1.00, heatFactor:1.30},
-    {name:"えび",     emoji:"🦐", rarity:"rare",      unlock:2, points:26,  speed:1.15, heatFactor:1.10},
-    {name:"アボカド", emoji:"🥑", rarity:"rare",      unlock:3, points:28,  speed:0.85, heatFactor:0.70},
-    {name:"牛すじ",   emoji:"🍖", rarity:"rare",      unlock:3, points:30,  speed:0.75, heatFactor:0.60},
-    {name:"いくら",   emoji:"🟠", rarity:"super",     unlock:4, points:44,  speed:1.30, heatFactor:1.50},
-    {name:"トリュフ", emoji:"🍄", rarity:"super",     unlock:4, points:50,  speed:1.10, heatFactor:1.40},
-    {name:"うなぎ",   emoji:"🍱", rarity:"super",     unlock:5, points:56,  speed:0.80, heatFactor:0.75},
-    {name:"金のタコ", emoji:"✨", rarity:"legendary", unlock:6, points:95,  speed:0.90, heatFactor:0.85},
-    {name:"宇宙タコ", emoji:"🛸", rarity:"legendary", unlock:7, points:120, speed:0.95, heatFactor:0.65}
+    {name:"タコ",     emoji:"🐙", rarity:"normal",    unlock:1, points:12,  speed:1.00, heatFactor:1.00, perfectWindow:1.15},
+    {name:"ねぎ",     emoji:"🌿", rarity:"normal",    unlock:1, points:12,  speed:1.02, heatFactor:1.05, perfectWindow:1.05},
+    {name:"チーズ",   emoji:"🧀", rarity:"normal",    unlock:1, points:13,  speed:1.08, heatFactor:1.10, perfectWindow:1.00},
+    {name:"もち",     emoji:"🍡", rarity:"normal",    unlock:1, points:14,  speed:1.05, heatFactor:0.95, perfectWindow:1.10},
+    {name:"明太子",   emoji:"🔴", rarity:"normal",    unlock:1, points:15,  speed:1.12, heatFactor:1.12, perfectWindow:0.90},
+    {name:"キムチ",   emoji:"🌶️", rarity:"rare",      unlock:2, points:24,  speed:1.05, heatFactor:1.15, perfectWindow:1.00},
+    {name:"えび",     emoji:"🦐", rarity:"rare",      unlock:2, points:26,  speed:1.12, heatFactor:1.15, perfectWindow:0.90},
+    {name:"アボカド", emoji:"🥑", rarity:"rare",      unlock:3, points:28,  speed:1.10, heatFactor:1.05, perfectWindow:0.95},
+    {name:"牛すじ",   emoji:"🍖", rarity:"rare",      unlock:3, points:30,  speed:1.15, heatFactor:1.20, perfectWindow:0.80},
+    {name:"いくら",   emoji:"🟠", rarity:"super",     unlock:4, points:44,  speed:1.25, heatFactor:1.35, perfectWindow:0.60},
+    {name:"トリュフ", emoji:"🍄", rarity:"super",     unlock:4, points:50,  speed:1.22, heatFactor:1.35, perfectWindow:0.65},
+    {name:"うなぎ",   emoji:"🍱", rarity:"super",     unlock:5, points:56,  speed:1.30, heatFactor:1.40, perfectWindow:0.55},
+    {name:"金のタコ", emoji:"✨", rarity:"legendary", unlock:6, points:95,  speed:1.30, heatFactor:1.45, perfectWindow:0.50},
+    {name:"宇宙タコ", emoji:"🛸", rarity:"legendary", unlock:7, points:120, speed:1.40, heatFactor:1.55, perfectWindow:0.40}
   ];
   const RARITY = {
     normal:    { label:"定番",   weight:18, badgeCls:"",          rank:0 },
@@ -582,11 +584,18 @@
   function cookRate(ball, heat){
     return BASE_COOK_RATE * ball.speed * (1 + (heat - 1) * ball.heatFactor);
   }
-  function cookRiskLabel(ball){
+  function cookPaceLabel(ball){
     const rate = cookRate(ball, HEAT_LEVELS[1].value); // 「強め」を基準に判定
     if(rate < BASE_COOK_RATE * 1.4) return "ゆっくり";
     if(rate > BASE_COOK_RATE * 1.9) return "はやい";
     return "ふつう";
+  }
+  function cookProfileLabel(ball){
+    const pace = cookPaceLabel(ball);
+    let window = "";
+    if(ball.perfectWindow <= 0.7) window = "焦げやすい";
+    else if(ball.perfectWindow >= 1.4) window = "粘る";
+    return window ? `${pace}・${window}` : pace;
   }
 
   function animateScoreTo(target){
@@ -731,10 +740,12 @@
     const pool = weightedPool();
     return pool[Math.floor(Math.random()*pool.length)];
   }
-  function stageName(age){
+  function stageName(age, ball){
+    const perfectWindow = ball ? ball.perfectWindow : 1;
+    const burntAt = STAGE_READY_MAX + (STAGE_PERFECT_MAX - STAGE_READY_MAX) * perfectWindow;
     if(age < STAGE_RAW_MAX) return ["raw","まだ生"];
     if(age < STAGE_READY_MAX) return ["ready","こんがり"];
-    if(age < STAGE_PERFECT_MAX) return ["perfect","完璧"];
+    if(age < burntAt) return ["perfect","完璧"];
     return ["burnt","焦げ"];
   }
   const holeEls = createHoles().map((_, i) => {
@@ -750,14 +761,14 @@
     if(!btn) return;
     btn.setAttribute("aria-label", (h.ball ? h.ball.name + "入りたこ焼き" : "空の穴") + " " + (i + 1));
     const prevKey = btn.dataset.state;
-    const key = h.ball ? h.ball.name + ":" + stageName(h.age)[0] : "empty";
+    const key = h.ball ? h.ball.name + ":" + stageName(h.age, h.ball)[0] : "empty";
     if(prevKey === key) return;
     btn.dataset.state = key;
     if(!h.ball){
       btn.replaceChildren();
       return;
     }
-    const [cls, label] = stageName(h.age);
+    const [cls, label] = stageName(h.age, h.ball);
     const className = "ball " + cls + " " + RARITY[h.ball.rarity].badgeCls;
     const html = `<span><span class="emoji">${h.ball.emoji}</span><span class="name">${h.ball.name}<br>${label}</span></span>`;
     const isNewBall = prevKey === "empty" || prevKey === "";
@@ -789,7 +800,7 @@
   function renderCollection(){
     const found = ingredients.filter(i => state.seen.has(i.name));
     $("collection").innerHTML = found.length ? found.map(i => {
-      return `<div class="ingredient"><span>${i.emoji}</span><strong>${i.name}</strong><span class="cook-tag">${cookRiskLabel(i)}</span><span class="rarity ${RARITY[i.rarity].badgeCls}">${RARITY[i.rarity].label}</span></div>`;
+      return `<div class="ingredient"><span>${i.emoji}</span><strong>${i.name}</strong><span class="cook-tag">${cookProfileLabel(i)}</span><span class="rarity ${RARITY[i.rarity].badgeCls}">${RARITY[i.rarity].label}</span></div>`;
     }).join("") : `<div class="guide">まだ未発見。まずは焼いてみよう。</div>`;
   }
   function setMessage(text){ $("message").innerHTML = text; }
@@ -913,7 +924,7 @@
       setMessage("くるっと回転！いい香りがしてきた。");
       vibrate(10);
     } else {
-      const [cls, label] = stageName(h.age);
+      const [cls, label] = stageName(h.age, h.ball);
       const rarity = h.ball.rarity;
       const emoji = h.ball.emoji;
       const name = h.ball.name;
