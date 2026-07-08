@@ -133,6 +133,26 @@
       0%{box-shadow:inset 0 0 0 8px #58524b, inset 0 -16px 30px rgba(0,0,0,.35), 0 0 0 0 rgba(255,210,110,.85)}
       100%{box-shadow:inset 0 0 0 8px #58524b, inset 0 -16px 30px rgba(0,0,0,.35), 0 0 46px 14px rgba(255,210,110,0)}
     }
+    .machine.danger-flash{animation:dangerGlow .55s ease-out}
+    @keyframes dangerGlow{
+      0%{box-shadow:inset 0 0 0 8px #58524b, inset 0 -16px 30px rgba(0,0,0,.35), 0 0 0 0 rgba(210,64,48,.85)}
+      100%{box-shadow:inset 0 0 0 8px #58524b, inset 0 -16px 30px rgba(0,0,0,.35), 0 0 50px 16px rgba(210,64,48,0)}
+    }
+    .particle{
+      position:absolute;
+      width:8px;height:8px;
+      border-radius:50%;
+      left:50%;top:50%;
+      transform:translate(-50%,-50%);
+      animation:particleFly .6s ease-out forwards;
+    }
+    @keyframes particleFly{
+      0%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+      100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(.3)}
+    }
+    .particle.spark{background:radial-gradient(circle,#fff6d6,#f0b24a)}
+    .particle.smoke{background:#9c9892;opacity:.85;width:9px;height:9px}
+    .particle.ash{background:#3a3630;width:11px;height:11px;animation-duration:.75s}
     .pill b{transition:transform .15s ease, color .15s ease}
     .pill b.pulse{color:var(--accent);transform:scale(1.15)}
     .ball{
@@ -455,6 +475,34 @@
     void machine.offsetWidth;
     machine.classList.add("combo-flash");
   }
+  function dangerFlash(){
+    const machine = document.querySelector(".machine");
+    if(!machine) return;
+    machine.classList.remove("danger-flash");
+    void machine.offsetWidth;
+    machine.classList.add("danger-flash");
+  }
+  function spawnParticles(index, count, kind){
+    const holeEl = griddle.children[index];
+    if(!holeEl || !floatLayer) return;
+    const holeRect = holeEl.getBoundingClientRect();
+    const layerRect = floatLayer.getBoundingClientRect();
+    const cx = holeRect.left - layerRect.left + holeRect.width / 2;
+    const cy = holeRect.top - layerRect.top + holeRect.height / 2;
+    for(let i = 0; i < count; i++){
+      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+      const dist = 22 + Math.random() * 22;
+      const p = document.createElement("div");
+      p.className = "particle " + kind;
+      p.style.left = cx + "px";
+      p.style.top = cy + "px";
+      p.style.setProperty("--dx", Math.cos(angle) * dist + "px");
+      p.style.setProperty("--dy", Math.sin(angle) * dist + "px");
+      floatLayer.appendChild(p);
+      p.addEventListener("animationend", () => p.remove());
+      setTimeout(() => p.remove(), 800);
+    }
+  }
 
   function weightedPool(){
     const unlocked = ingredients.filter(i => i.unlock <= state.level);
@@ -635,6 +683,7 @@
         vibrate([30, 30, 30]);
       }
       showFloatScore(index, gained, rarity, state.combo);
+      spawnParticles(index, gained > 0 ? (rarity !== "normal" ? 9 : 6) : 4, gained > 0 ? "spark" : "smoke");
       if(state.combo > 1) comboFlash();
       h.ball = null; h.age = 0; h.flipped = false;
       levelCheck();
@@ -653,6 +702,8 @@
         state.score = Math.max(0, state.score - NEGLECT_PENALTY);
         state.combo = 0;
         showFloatScore(i, -NEGLECT_PENALTY, null, 0);
+        spawnParticles(i, 10, "ash");
+        dangerFlash();
         vibrate([40, 40, 40, 40]);
         setMessage(`${h.ball.emoji} ${h.ball.name}が放置されすぎて炭になった…-${NEGLECT_PENALTY}点`);
         h.ball = null; h.age = 0; h.flipped = false;
