@@ -347,7 +347,7 @@
     }
     .ingredient{
       display:grid;
-      grid-template-columns:auto 1fr auto;
+      grid-template-columns:auto 1fr auto auto;
       gap:8px;
       align-items:center;
       border:1px solid var(--line);
@@ -356,6 +356,7 @@
       background:#F9F8F7;
       font-size:13px;
     }
+    .cook-tag{font-size:11px;color:var(--muted);white-space:nowrap}
     .rarity{font-size:11px;border-radius:999px;padding:2px 8px;background:#E5F2FC;color:#1b5e9f;font-weight:700}
     .rarity.rare{background:#efe9fb;color:#6e42bd}
     .rarity.legendary{background:#fff1c8;color:#8a5a00}
@@ -503,21 +504,22 @@
 
 <script>
 (() => {
+  // speed: 基礎の焼け速さ(1.0が基準)。heatFactor: 火力を上げた時にどれだけ余計に速く進むか(1.0が基準、大きいほど高火力で一気に焦げやすい)
   const ingredients = [
-    {name:"タコ", emoji:"🐙", rarity:"normal", unlock:1, points:12},
-    {name:"チーズ", emoji:"🧀", rarity:"normal", unlock:1, points:13},
-    {name:"もち", emoji:"🍡", rarity:"normal", unlock:1, points:14},
-    {name:"ねぎ", emoji:"🌿", rarity:"normal", unlock:1, points:12},
-    {name:"明太子", emoji:"🔴", rarity:"normal", unlock:1, points:15},
-    {name:"キムチ", emoji:"🌶️", rarity:"rare", unlock:2, points:24},
-    {name:"えび", emoji:"🦐", rarity:"rare", unlock:2, points:26},
-    {name:"アボカド", emoji:"🥑", rarity:"rare", unlock:3, points:28},
-    {name:"牛すじ", emoji:"🍖", rarity:"rare", unlock:3, points:30},
-    {name:"いくら", emoji:"🟠", rarity:"super", unlock:4, points:44},
-    {name:"トリュフ", emoji:"🍄", rarity:"super", unlock:4, points:50},
-    {name:"うなぎ", emoji:"🍱", rarity:"super", unlock:5, points:56},
-    {name:"金のタコ", emoji:"✨", rarity:"legendary", unlock:6, points:95},
-    {name:"宇宙タコ", emoji:"🛸", rarity:"legendary", unlock:7, points:120}
+    {name:"タコ",     emoji:"🐙", rarity:"normal",    unlock:1, points:12,  speed:1.00, heatFactor:1.00},
+    {name:"チーズ",   emoji:"🧀", rarity:"normal",    unlock:1, points:13,  speed:1.10, heatFactor:1.40},
+    {name:"もち",     emoji:"🍡", rarity:"normal",    unlock:1, points:14,  speed:1.15, heatFactor:0.90},
+    {name:"ねぎ",     emoji:"🌿", rarity:"normal",    unlock:1, points:12,  speed:1.20, heatFactor:1.30},
+    {name:"明太子",   emoji:"🔴", rarity:"normal",    unlock:1, points:15,  speed:1.25, heatFactor:1.20},
+    {name:"キムチ",   emoji:"🌶️", rarity:"rare",      unlock:2, points:24,  speed:1.00, heatFactor:1.30},
+    {name:"えび",     emoji:"🦐", rarity:"rare",      unlock:2, points:26,  speed:1.15, heatFactor:1.10},
+    {name:"アボカド", emoji:"🥑", rarity:"rare",      unlock:3, points:28,  speed:0.85, heatFactor:0.70},
+    {name:"牛すじ",   emoji:"🍖", rarity:"rare",      unlock:3, points:30,  speed:0.75, heatFactor:0.60},
+    {name:"いくら",   emoji:"🟠", rarity:"super",     unlock:4, points:44,  speed:1.30, heatFactor:1.50},
+    {name:"トリュフ", emoji:"🍄", rarity:"super",     unlock:4, points:50,  speed:1.10, heatFactor:1.40},
+    {name:"うなぎ",   emoji:"🍱", rarity:"super",     unlock:5, points:56,  speed:0.80, heatFactor:0.75},
+    {name:"金のタコ", emoji:"✨", rarity:"legendary", unlock:6, points:95,  speed:0.90, heatFactor:0.85},
+    {name:"宇宙タコ", emoji:"🛸", rarity:"legendary", unlock:7, points:120, speed:0.95, heatFactor:0.65}
   ];
   const RARITY = {
     normal:    { label:"定番",   weight:18, badgeCls:"",          rank:0 },
@@ -575,6 +577,16 @@
   }
   function currentHeatLevel(){
     return HEAT_LEVELS.find(h => h.value === state.heat) || HEAT_LEVELS[0];
+  }
+  const BASE_COOK_RATE = 0.72;
+  function cookRate(ball, heat){
+    return BASE_COOK_RATE * ball.speed * (1 + (heat - 1) * ball.heatFactor);
+  }
+  function cookRiskLabel(ball){
+    const rate = cookRate(ball, HEAT_LEVELS[1].value); // 「強め」を基準に判定
+    if(rate < BASE_COOK_RATE * 1.4) return "ゆっくり";
+    if(rate > BASE_COOK_RATE * 1.9) return "はやい";
+    return "ふつう";
   }
 
   function animateScoreTo(target){
@@ -777,7 +789,7 @@
   function renderCollection(){
     const found = ingredients.filter(i => state.seen.has(i.name));
     $("collection").innerHTML = found.length ? found.map(i => {
-      return `<div class="ingredient"><span>${i.emoji}</span><strong>${i.name}</strong><span class="rarity ${RARITY[i.rarity].badgeCls}">${RARITY[i.rarity].label}</span></div>`;
+      return `<div class="ingredient"><span>${i.emoji}</span><strong>${i.name}</strong><span class="cook-tag">${cookRiskLabel(i)}</span><span class="rarity ${RARITY[i.rarity].badgeCls}">${RARITY[i.rarity].label}</span></div>`;
     }).join("") : `<div class="guide">まだ未発見。まずは焼いてみよう。</div>`;
   }
   function setMessage(text){ $("message").innerHTML = text; }
@@ -974,7 +986,7 @@
         holeEls[i].classList.remove("warn");
         return;
       }
-      h.age += .72 * state.heat;
+      h.age += cookRate(h.ball, state.heat);
       if(h.age >= NEGLECT_AGE){
         state.score = Math.max(0, state.score - NEGLECT_PENALTY);
         state.combo = 0;
