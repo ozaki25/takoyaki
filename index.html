@@ -555,19 +555,28 @@
     const rank = top10.indexOf(entry);
     return rank >= 0 ? rank + 1 : null;
   }
-  function currentRank(score){
-    if(score <= 0) return null;
-    const list = loadHighScores();
-    const better = list.filter(e => e.score > score).length;
-    if(list.length < 10) return better + 1;
-    return better < 10 ? better + 1 : null;
+  const rarityRank = { normal: 0, rare: 1, super: 2, legendary: 3 };
+  function findRarestSeen(seenSet){
+    let best = null;
+    seenSet.forEach(name => {
+      const ing = ingredients.find(i => i.name === name);
+      if(ing && (!best || rarityRank[ing.rarity] > rarityRank[best.rarity])) best = ing;
+    });
+    return best;
   }
+  let lastResult = null;
   async function shareResult(){
-    const discovered = state.seen.size;
-    const rank = currentRank(state.score);
+    if(!lastResult){
+      setMessage("まずは1回プレイしてから結果をシェアしよう！");
+      return;
+    }
+    const { score, discovered, level, rank, rarest } = lastResult;
     const rankLine = rank ? `ランキング${rank}位！` : "";
+    const rareLine = rarest && rarest.rarity !== "normal"
+      ? `\n最高レア具材: ${rarest.emoji}${rarest.name}(${rarityLabel[rarest.rarity]})`
+      : "";
     const url = location.href.split("#")[0].split("?")[0];
-    const text = `🐙たこ焼き具材ガチャで${state.score}点！\n発見具材${discovered}種・レベル${state.level}${rankLine ? "・" + rankLine : ""}\n${url}`;
+    const text = `🐙たこ焼き具材ガチャで${score}点！\n発見具材${discovered}種・レベル${level}${rankLine ? "・" + rankLine : ""}${rareLine}\n${url}`;
     const isMobile = window.matchMedia("(max-width:820px)").matches;
     if(navigator.share && isMobile){
       // urlを別項目にすると共有先アプリがurlしか使わずtextを無視することがあるため、textにまとめて渡す
@@ -632,6 +641,8 @@
       clearInterval(state.tick);
       const discovered = state.seen.size;
       const rank = recordScore(state.score, discovered);
+      const rarest = findRarestSeen(state.seen);
+      lastResult = { score: state.score, discovered, level: state.level, rank, rarest, date: new Date().toISOString() };
       const rankText = rank ? ` ランキング${rank}位にランクイン！` : "";
       setMessage(`閉店！ スコア${state.score}点、発見具材${discovered}種。${rankText}もう一回で伝説具材を狙おう！`);
     }
