@@ -276,6 +276,29 @@
       flex:1;height:12px;border-radius:99px;background:#191919;overflow:hidden;border:1px solid rgba(255,255,255,.16)
     }
     .heatbar i{display:block;height:100%;width:35%;background:linear-gradient(90deg,#46A171,#EAC26B,#E56458);border-radius:inherit;transition:width .2s}
+    .tray-wrap{display:flex;align-items:center;gap:8px;margin-top:10px;min-height:26px}
+    .tray-label{font-size:11px;color:#c9c6c1;flex:none}
+    .tray{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-height:24px}
+    .tray-chip{
+      width:22px;height:22px;border-radius:50%;
+      background:rgba(255,255,255,.12);
+      display:flex;align-items:center;justify-content:center;
+      font-size:13px;
+      animation:chipPop .4s cubic-bezier(.2,1.4,.4,1) both;
+    }
+    .tray-chip.overflow{
+      width:auto;min-width:22px;padding:0 7px;border-radius:11px;
+      background:rgba(255,216,115,.22);color:#ffd873;font-weight:800;font-size:11px;
+    }
+    .tray-fly{
+      position:absolute;
+      font-size:20px;
+      transform:translate(-50%,-50%);
+      z-index:8;
+      pointer-events:none;
+      opacity:1;
+      transition:left .5s cubic-bezier(.3,.5,.3,1), top .5s cubic-bezier(.3,.5,.3,1), opacity .5s ease .22s, font-size .5s ease;
+    }
     .side{padding:18px;display:grid;gap:14px}
     .card{
       border:1px solid var(--line);
@@ -429,6 +452,10 @@
           <div class="heatbar" aria-hidden="true"><i id="heatBar"></i></div>
           <span id="queue">具材待ち</span>
         </div>
+        <div class="tray-wrap">
+          <span class="tray-label">できたて</span>
+          <div class="tray" id="tray" aria-hidden="true"></div>
+        </div>
       </div>
     </section>
 
@@ -567,6 +594,77 @@
       p.addEventListener("animationend", () => p.remove());
       setTimeout(() => p.remove(), 800);
     }
+  }
+  const TRAY_VISIBLE_CAP = 12;
+  let trayOverflowCount = 0;
+  function resetTray(){
+    trayOverflowCount = 0;
+    const trayEl = $("tray");
+    if(trayEl) trayEl.innerHTML = "";
+  }
+  function updateOverflowBadge(){
+    const trayEl = $("tray");
+    if(!trayEl) return;
+    let badge = trayEl.querySelector(".tray-chip.overflow");
+    if(!badge){
+      badge = document.createElement("span");
+      badge.className = "tray-chip overflow";
+      trayEl.prepend(badge);
+    }
+    badge.textContent = "+" + trayOverflowCount;
+    badge.classList.remove("bump");
+    void badge.offsetWidth;
+    badge.classList.add("bump");
+  }
+  function commitTrayItem(emoji){
+    const trayEl = $("tray");
+    if(!trayEl) return;
+    const chip = document.createElement("span");
+    chip.className = "tray-chip";
+    chip.textContent = emoji;
+    trayEl.appendChild(chip);
+    const chips = trayEl.querySelectorAll(".tray-chip:not(.overflow)");
+    if(chips.length > TRAY_VISIBLE_CAP - 1){
+      chips[0].remove();
+      trayOverflowCount++;
+      updateOverflowBadge();
+    }
+  }
+  function flyToTray(index, emoji){
+    const holeEl = griddle.children[index];
+    const trayEl = $("tray");
+    if(!holeEl || !trayEl || !floatLayer){
+      commitTrayItem(emoji);
+      return;
+    }
+    const holeRect = holeEl.getBoundingClientRect();
+    const layerRect = floatLayer.getBoundingClientRect();
+    const trayRect = trayEl.getBoundingClientRect();
+    if(prefersReducedMotion){
+      commitTrayItem(emoji);
+      return;
+    }
+    const fly = document.createElement("div");
+    fly.className = "tray-fly";
+    fly.textContent = emoji;
+    fly.style.left = (holeRect.left - layerRect.left + holeRect.width / 2) + "px";
+    fly.style.top = (holeRect.top - layerRect.top + holeRect.height / 2) + "px";
+    floatLayer.appendChild(fly);
+    requestAnimationFrame(() => {
+      fly.style.left = (trayRect.right - layerRect.left - 10) + "px";
+      fly.style.top = (trayRect.top - layerRect.top + trayRect.height / 2) + "px";
+      fly.style.fontSize = "10px";
+      fly.style.opacity = "0.3";
+    });
+    let cleaned = false;
+    const cleanup = () => {
+      if(cleaned) return;
+      cleaned = true;
+      fly.remove();
+      commitTrayItem(emoji);
+    };
+    fly.addEventListener("transitionend", cleanup, { once: true });
+    setTimeout(cleanup, 650);
   }
 
   function weightedPool(){
@@ -789,6 +887,7 @@
       }
       showFloatScore(index, gained, rarity, state.combo);
       spawnParticles(index, gained > 0 ? (rarity !== "normal" ? 9 : 6) : 4, gained > 0 ? "spark" : "smoke");
+      if(gained > 0) flyToTray(index, h.ball.emoji);
       if(state.combo > 1) comboFlash();
       h.ball = null; h.age = 0; h.flipped = false;
       levelCheck();
@@ -845,6 +944,7 @@
     state.seen = new Set();
     scoreAnimCurrent = 0;
     $("score").textContent = 0;
+    resetTray();
     setMessage("開店！空いている穴をクリックして生地を流そう。");
     showStageBanner(`<div class="title">開店！</div><div class="sub">生地を流して焼いていこう</div>`, 1100);
     state.tick = setInterval(tick, 1000);
