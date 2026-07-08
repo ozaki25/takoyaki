@@ -465,16 +465,17 @@
     const discovered = state.seen.size;
     const rank = currentRank(state.score);
     const rankLine = rank ? `ランキング${rank}位！` : "";
-    const text = `🐙たこ焼き具材ガチャで${state.score}点！\n発見具材${discovered}種・レベル${state.level}${rankLine ? "・" + rankLine : ""}`;
     const url = location.href.split("#")[0].split("?")[0];
+    const text = `🐙たこ焼き具材ガチャで${state.score}点！\n発見具材${discovered}種・レベル${state.level}${rankLine ? "・" + rankLine : ""}\n${url}`;
     const isMobile = window.matchMedia("(max-width:820px)").matches;
     if(navigator.share && isMobile){
-      try{ await navigator.share({ title: "たこ焼き具材ガチャ", text, url }); }
+      // urlを別項目にすると共有先アプリがurlしか使わずtextを無視することがあるため、textにまとめて渡す
+      try{ await navigator.share({ title: "たこ焼き具材ガチャ", text }); }
       catch(e){ /* ユーザーがキャンセルした場合など */ }
       return;
     }
     try{
-      await navigator.clipboard.writeText(`${text}\n${url}`);
+      await navigator.clipboard.writeText(text);
       setMessage("結果をクリップボードにコピーしました！SNSなどに貼り付けてシェアしよう。");
     }catch(e){
       setMessage("コピーに失敗しました。お使いのブラウザは共有に対応していないかもしれません。");
