@@ -4,6 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>たこ焼き具材ガチャ</title>
+  <meta name="description" content="穴をクリックして焼き加減を進める、たこ焼き具材ガチャゲーム" />
+  <meta name="theme-color" content="#D5803B" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
   <style>
     :root{
       --bg:#fff7ea;
@@ -423,6 +429,12 @@
   });
   state.holes = Array.from({length:12},()=>({ball:null, age:0, flipped:false}));
   render();
+
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("service-worker.js").catch(() => {});
+    });
+  }
 })();
 </script>
 </body>

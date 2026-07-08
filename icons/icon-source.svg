@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFC773"/>
+      <stop offset="55%" stop-color="#F0983E"/>
+      <stop offset="100%" stop-color="#D5642A"/>
+    </linearGradient>
+    <radialGradient id="ballBig" cx="36%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="#FFE2A8"/>
+      <stop offset="35%" stop-color="#F0B65E"/>
+      <stop offset="75%" stop-color="#C97C2E"/>
+      <stop offset="100%" stop-color="#8A4E1B"/>
+    </radialGradient>
+    <radialGradient id="ballSmall" cx="36%" cy="28%" r="78%">
+      <stop offset="0%" stop-color="#FFE9BC"/>
+      <stop offset="35%" stop-color="#F3BE6C"/>
+      <stop offset="75%" stop-color="#CD8434"/>
+      <stop offset="100%" stop-color="#8E521E"/>
+    </radialGradient>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#5a2c0c" flood-opacity="0.35"/>
+    </filter>
+    <clipPath id="clipBig"><circle cx="512" cy="560" r="238"/></clipPath>
+    <clipPath id="clipL"><circle cx="286" cy="676" r="150"/></clipPath>
+    <clipPath id="clipR"><circle cx="738" cy="676" r="150"/></clipPath>
+  </defs>
+
+  <!-- app icon background (squircle) -->
+  <rect x="0" y="0" width="1024" height="1024" rx="224" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1024" height="1024" rx="224" fill="#FFFFFF" opacity="0.04"/>
+
+  <!-- back-left ball -->
+  <g filter="url(#soft)">
+    <circle cx="286" cy="676" r="150" fill="url(#ballSmall)"/>
+  </g>
+  <g clip-path="url(#clipL)">
+    <path d="M150 660 Q220 630 286 655 Q352 680 422 645" stroke="#FFF6E6" stroke-width="16" fill="none" opacity="0.9"/>
+    <path d="M150 700 Q220 730 286 705 Q352 680 422 715" stroke="#6B3A16" stroke-width="14" fill="none" opacity="0.55"/>
+    <circle cx="238" cy="620" r="7" fill="#3E7D3F"/>
+    <circle cx="330" cy="738" r="7" fill="#3E7D3F"/>
+  </g>
+
+  <!-- back-right ball -->
+  <g filter="url(#soft)">
+    <circle cx="738" cy="676" r="150" fill="url(#ballSmall)"/>
+  </g>
+  <g clip-path="url(#clipR)">
+    <path d="M602 665 Q672 635 738 660 Q804 685 874 650" stroke="#FFF6E6" stroke-width="16" fill="none" opacity="0.9"/>
+    <path d="M602 705 Q672 735 738 710 Q804 685 874 720" stroke="#6B3A16" stroke-width="14" fill="none" opacity="0.55"/>
+    <circle cx="690" cy="628" r="7" fill="#3E7D3F"/>
+    <circle cx="792" cy="742" r="7" fill="#3E7D3F"/>
+  </g>
+
+  <!-- front big ball -->
+  <g filter="url(#soft)">
+    <circle cx="512" cy="560" r="238" fill="url(#ballBig)"/>
+  </g>
+  <g clip-path="url(#clipBig)">
+    <!-- mayo drizzle -->
+    <path d="M300 520 Q380 470 460 515 Q540 560 620 505 Q680 465 740 500"
+          stroke="#FFF8EA" stroke-width="26" fill="none" stroke-linecap="round" opacity="0.95"/>
+    <!-- sauce drizzle -->
+    <path d="M300 590 Q380 640 460 600 Q540 560 620 610 Q680 645 740 605"
+          stroke="#5C2F10" stroke-width="20" fill="none" stroke-linecap="round" opacity="0.6"/>
+    <!-- aonori flecks -->
+    <circle cx="420" cy="470" r="10" fill="#3E7D3F"/>
+    <circle cx="470" cy="640" r="9" fill="#2F6B33"/>
+    <circle cx="600" cy="460" r="8" fill="#3E7D3F"/>
+    <circle cx="360" cy="600" r="7" fill="#2F6B33"/>
+    <circle cx="640" cy="630" r="9" fill="#3E7D3F"/>
+    <!-- benishoga (pickled ginger) -->
+    <path d="M540 500 q14 -18 26 0 q-6 20 -26 0z" fill="#D8506B"/>
+    <path d="M400 540 q12 -16 24 0 q-6 18 -24 0z" fill="#D8506B"/>
+  </g>
+
+  <!-- katsuobushi (bonito flake) on top, gives movement/life to the icon -->
+  <g transform="translate(512,392) rotate(-8)">
+    <path d="M-70 18 C-40 -34 40 -34 70 18 C40 6 -40 6 -70 18 Z" fill="#F2C48A" opacity="0.92"/>
+    <path d="M-52 12 C-28 -18 28 -18 52 12" stroke="#C98A4C" stroke-width="4" fill="none" opacity="0.6"/>
+  </g>
+  <g transform="translate(600,430) rotate(20)">
+    <path d="M-46 12 C-26 -22 26 -22 46 12 C26 4 -26 4 -46 12 Z" fill="#F6D6A6" opacity="0.9"/>
+  </g>
+
+  <!-- highlight -->
+  <ellipse cx="430" cy="450" rx="70" ry="40" fill="#FFFFFF" opacity="0.35"/>
+</svg>
