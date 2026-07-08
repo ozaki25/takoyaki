@@ -158,6 +158,20 @@
       box-shadow:0 0 18px rgba(255,216,115,.6);
     }
     .stage-banner .hint{font-size:12px;color:#fff8e6;opacity:.75}
+    .stage-banner .banner-share{
+      margin-top:2px;
+      min-height:44px;
+      padding:0 24px;
+      border:0;
+      border-radius:14px;
+      background:var(--accent);
+      color:#fff;
+      font-weight:800;
+      font-size:15px;
+      cursor:pointer;
+      touch-action:manipulation;
+      box-shadow:0 8px 16px rgba(0,0,0,.3);
+    }
     @keyframes bannerPop{
       0%{opacity:0;transform:scale(.6)}
       60%{opacity:1;transform:scale(1.08)}
@@ -947,8 +961,17 @@
       <div class="result-score">${state.score}点</div>
       <div class="sub">発見具材${discovered}種・レベル${state.level}${rankText}</div>
       ${chipsHtml ? `<div class="chips">${chipsHtml}</div>` : ""}
+      <button class="banner-share" id="bannerShareBtn">結果をシェア</button>
       <div class="hint">タップで閉じる</div>
     `);
+    const bannerShareBtn = $("bannerShareBtn");
+    if(bannerShareBtn){
+      bannerShareBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        await shareResult();
+        hideStageBanner();
+      });
+    }
   }
   function tick(){
     if(!state.running) return;
