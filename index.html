@@ -177,6 +177,7 @@
       box-shadow:inset -8px -10px 18px rgba(165,78,13,.16), inset 6px 8px 15px rgba(255,255,255,.55), 0 3px 10px rgba(0,0,0,.35);
       transform:scale(.9);
       animation:pop .22s ease-out;
+      transition:background .35s ease, color .3s ease;
       overflow:hidden;
     }
     @keyframes pop{from{transform:scale(.55);opacity:.25}to{transform:scale(.9);opacity:1}}
@@ -537,18 +538,29 @@
     const btn = holeEls[i];
     if(!btn) return;
     btn.setAttribute("aria-label", (h.ball ? h.ball.name + "入りたこ焼き" : "空の穴") + " " + (i + 1));
+    const prevKey = btn.dataset.state;
     const key = h.ball ? h.ball.name + ":" + stageName(h.age)[0] : "empty";
-    if(btn.dataset.state === key) return;
+    if(prevKey === key) return;
     btn.dataset.state = key;
     if(!h.ball){
       btn.replaceChildren();
       return;
     }
     const [cls, label] = stageName(h.age);
-    const ball = document.createElement("div");
-    ball.className = "ball " + cls + " " + (h.ball.rarity === "super" ? "rare" : h.ball.rarity);
-    ball.innerHTML = `<span><span class="emoji">${h.ball.emoji}</span><span class="name">${h.ball.name}<br>${label}</span></span>`;
-    btn.replaceChildren(ball);
+    const className = "ball " + cls + " " + (h.ball.rarity === "super" ? "rare" : h.ball.rarity);
+    const html = `<span><span class="emoji">${h.ball.emoji}</span><span class="name">${h.ball.name}<br>${label}</span></span>`;
+    const isNewBall = prevKey === "empty" || prevKey === "";
+    const existingBall = !isNewBall && btn.querySelector(".ball");
+    if(existingBall){
+      // 生地投入時だけポップ演出、焼き加減の遷移は要素を作り直さずなだらかに更新する
+      existingBall.className = className;
+      existingBall.innerHTML = html;
+    }else{
+      const ball = document.createElement("div");
+      ball.className = className;
+      ball.innerHTML = html;
+      btn.replaceChildren(ball);
+    }
   }
   function render(){
     $("level").textContent = state.level;
