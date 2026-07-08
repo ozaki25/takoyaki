@@ -525,19 +525,30 @@
     if(age < 6) return ["perfect","完璧"];
     return ["burnt","焦げ"];
   }
-  function renderHole(h, i){
+  const holeEls = Array.from({length:12}, (_, i) => {
     const btn = document.createElement("button");
     btn.className = "hole";
-    btn.setAttribute("aria-label", (h.ball ? h.ball.name + "入りたこ焼き" : "空の穴") + " " + (i+1));
+    btn.dataset.state = "";
     btn.addEventListener("click", () => tapHole(i));
-    if(h.ball){
-      const [cls, label] = stageName(h.age);
-      const ball = document.createElement("div");
-      ball.className = "ball " + cls + " " + (h.ball.rarity === "super" ? "rare" : h.ball.rarity);
-      ball.innerHTML = `<span><span class="emoji">${h.ball.emoji}</span><span class="name">${h.ball.name}<br>${label}</span></span>`;
-      btn.appendChild(ball);
-    }
     return btn;
+  });
+  griddle.append(...holeEls);
+  function updateHole(h, i){
+    const btn = holeEls[i];
+    if(!btn) return;
+    btn.setAttribute("aria-label", (h.ball ? h.ball.name + "入りたこ焼き" : "空の穴") + " " + (i + 1));
+    const key = h.ball ? h.ball.name + ":" + stageName(h.age)[0] : "empty";
+    if(btn.dataset.state === key) return;
+    btn.dataset.state = key;
+    if(!h.ball){
+      btn.replaceChildren();
+      return;
+    }
+    const [cls, label] = stageName(h.age);
+    const ball = document.createElement("div");
+    ball.className = "ball " + cls + " " + (h.ball.rarity === "super" ? "rare" : h.ball.rarity);
+    ball.innerHTML = `<span><span class="emoji">${h.ball.emoji}</span><span class="name">${h.ball.name}<br>${label}</span></span>`;
+    btn.replaceChildren(ball);
   }
   function render(){
     $("level").textContent = state.level;
@@ -547,7 +558,7 @@
     $("heatLabel").textContent = "火力：" + (state.heat === 1 ? "ふつう" : state.heat === 1.6 ? "強め" : "全開");
     $("heatBar").style.width = (state.heat === 1 ? 35 : state.heat === 1.6 ? 68 : 100) + "%";
     $("queue").textContent = "解放具材：" + ingredients.filter(i=>i.unlock<=state.level).length + "種";
-    griddle.replaceChildren(...state.holes.map(renderHole));
+    state.holes.forEach((h, i) => updateHole(h, i));
     renderCollection();
     $("shareBtn").style.display = (!state.running && lastResult) ? "" : "none";
   }
