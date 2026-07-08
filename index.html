@@ -598,6 +598,11 @@
       setMessage(`レベル${state.level}にアップ！ 新しい具材が屋台に届きました。`);
     }
   }
+  function vibrate(pattern){
+    if(navigator.vibrate){
+      try{ navigator.vibrate(pattern); }catch(e){}
+    }
+  }
   function tapHole(index){
     if(!state.running) return setMessage("まずはスタートを押してね。");
     const h = state.holes[index];
@@ -605,9 +610,11 @@
       h.ball = randomIngredient(); h.age = 0; h.flipped = false;
       setMessage(`${h.ball.emoji} ${h.ball.name}入りを投入！`);
       state.seen.add(h.ball.name);
+      vibrate(10);
     } else if(!h.flipped){
       h.flipped = true; h.age = Math.max(2.1, h.age);
       setMessage("くるっと回転！いい香りがしてきた。");
+      vibrate(10);
     } else {
       const [cls, label] = stageName(h.age);
       const rarity = h.ball.rarity;
@@ -622,8 +629,10 @@
         const rareText = rarity !== "normal" ? ` ${rarityLabel[rarity]}具材ボーナス！` : "";
         const comboText = state.combo > 1 ? ` <span class="combo">${state.combo}連続完璧！</span>` : "";
         setMessage(`${h.ball.emoji} ${h.ball.name}を${label}で提供！ +${gained}点${rareText}${comboText}`);
+        vibrate(cls === "perfect" ? (state.combo > 1 ? [15, 40, 15, 40, 30] : [10, 50, 20]) : 15);
       } else {
         setMessage(cls === "raw" ? "まだ早かった… -5点" : "焦げちゃった… -12点");
+        vibrate([30, 30, 30]);
       }
       showFloatScore(index, gained, rarity, state.combo);
       if(state.combo > 1) comboFlash();
