@@ -220,6 +220,29 @@
     }
     .combo{color:var(--good);font-weight:900}
     .small{font-size:12px;color:var(--muted);margin-top:8px}
+    .ranking{list-style:none;margin:0;padding:0;display:grid;gap:8px;max-height:280px;overflow:auto;padding-right:4px}
+    .ranking li{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:8px 10px;
+      background:#F9F8F7;
+      font-size:13px;
+    }
+    .ranking li.new{border-color:var(--accent);background:#FBEBDE}
+    .rank-badge{
+      width:24px;height:24px;border-radius:50%;
+      background:#dcdad6;color:#fff;font-weight:800;font-size:12px;
+      display:grid;place-items:center;flex:none;
+    }
+    .rank-badge.gold{background:linear-gradient(145deg,#ffdd8a,#c98a2e);color:#5b3312}
+    .rank-badge.silver{background:linear-gradient(145deg,#e6e8ea,#a9b0b6);color:#2C2C2B}
+    .rank-badge.bronze{background:linear-gradient(145deg,#e2ab7c,#a8623a);color:#fff}
+    .ranking .score{font-weight:800}
+    .ranking .meta{color:var(--muted);font-size:11px;margin-left:6px;font-weight:400}
     @media(max-width:820px){
       body{padding:12px}
       .app{grid-template-columns:1fr}
@@ -276,6 +299,11 @@
           <button class="action secondary" id="boostBtn">火力UP</button>
         </div>
         <p class="guide">クリック1回目で生地投入、2回目でくるっと回転、3回目以降は焼き加減に応じて回収。放置しすぎると焦げます。</p>
+      </section>
+
+      <section class="card">
+        <h2>ランキング(トップ10)</h2>
+        <ol class="ranking" id="ranking"></ol>
       </section>
 
       <section class="card">
@@ -369,6 +397,46 @@
     }).join("") : `<div class="guide">まだ未発見。まずは焼いてみよう。</div>`;
   }
   function setMessage(text){ $("message").innerHTML = text; }
+
+  const HIGHSCORE_KEY = "takoyakiGachaHighScores";
+  function loadHighScores(){
+    try{
+      const list = JSON.parse(localStorage.getItem(HIGHSCORE_KEY) || "[]");
+      return Array.isArray(list) ? list : [];
+    }catch(e){ return []; }
+  }
+  function formatDate(iso){
+    const d = new Date(iso);
+    if(Number.isNaN(d.getTime())) return "";
+    return `${d.getMonth()+1}/${d.getDate()}`;
+  }
+  function renderRanking(justAdded){
+    const list = loadHighScores();
+    const rankingEl = $("ranking");
+    if(!list.length){
+      rankingEl.innerHTML = `<li style="border:none;background:none;color:var(--muted);grid-template-columns:1fr">まだ記録がありません。プレイしてスコアを残そう！</li>`;
+      return;
+    }
+    rankingEl.innerHTML = list.map((entry, i) => {
+      const badgeCls = i === 0 ? "gold" : i === 1 ? "silver" : i === 2 ? "bronze" : "";
+      const isNew = justAdded && entry.date === justAdded.date;
+      return `<li class="${isNew ? "new" : ""}">
+        <span class="rank-badge ${badgeCls}">${i + 1}</span>
+        <span class="score">${entry.score}点<span class="meta">発見${entry.discovered}種・${formatDate(entry.date)}</span></span>
+      </li>`;
+    }).join("");
+  }
+  function recordScore(score, discovered){
+    const list = loadHighScores();
+    const entry = { score, discovered, date: new Date().toISOString() };
+    list.push(entry);
+    list.sort((a, b) => b.score - a.score);
+    const top10 = list.slice(0, 10);
+    try{ localStorage.setItem(HIGHSCORE_KEY, JSON.stringify(top10)); }catch(e){}
+    renderRanking(entry);
+    const rank = top10.indexOf(entry);
+    return rank >= 0 ? rank + 1 : null;
+  }
   function levelCheck(){
     const next = Math.floor(state.score / 180) + 1;
     if(next > state.level){
@@ -415,7 +483,9 @@
       state.running = false;
       clearInterval(state.tick);
       const discovered = state.seen.size;
-      setMessage(`閉店！ スコア${state.score}点、発見具材${discovered}種。もう一回で伝説具材を狙おう！`);
+      const rank = recordScore(state.score, discovered);
+      const rankText = rank ? ` ランキング${rank}位にランクイン！` : "";
+      setMessage(`閉店！ スコア${state.score}点、発見具材${discovered}種。${rankText}もう一回で伝説具材を狙おう！`);
     }
     render();
   }
@@ -437,6 +507,7 @@
   });
   state.holes = Array.from({length:12},()=>({ball:null, age:0, flipped:false}));
   render();
+  renderRanking();
 
   if("serviceWorker" in navigator){
     window.addEventListener("load", () => {
