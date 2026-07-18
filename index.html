@@ -406,7 +406,6 @@
       cursor:pointer;
       touch-action:manipulation;
     }
-    .dex-reset.armed{border-color:var(--bad);color:var(--bad);font-weight:700}
     .discovery-overlay{
       position:fixed;inset:0;
       background:rgba(15,12,9,.94);
@@ -1216,23 +1215,10 @@
   });
   $("dexClose").addEventListener("click", () => { $("dexModal").hidden = true; });
   $("dexReset").addEventListener("click", () => {
-    const btn = $("dexReset");
-    if(!btn.classList.contains("armed")){
-      btn.classList.add("armed");
-      btn.textContent = "本当にリセットする？(もう一度タップ)";
-      clearTimeout(ui.dexResetArmTimer);
-      ui.dexResetArmTimer = setTimeout(() => {
-        btn.classList.remove("armed");
-        btn.textContent = "図鑑をリセット";
-      }, 3000);
-      return;
-    }
-    clearTimeout(ui.dexResetArmTimer);
+    if(!confirm("図鑑の発見記録と獲得数をすべてリセットします。よろしいですか？")) return;
     ui.dex = {};
     ui.newDiscoveries.clear();
     try{ localStorage.removeItem(DEX_KEY); }catch(e){}
-    btn.classList.remove("armed");
-    btn.textContent = "図鑑をリセット";
     renderDex();
   });
   $("dexModal").addEventListener("click", (e) => {
