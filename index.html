@@ -395,6 +395,18 @@
       cursor:pointer;touch-action:manipulation;color:var(--ink);
     }
     .dex-list{max-height:none;flex:1;overflow:auto}
+    .dex-reset{
+      margin-top:12px;
+      border:1px solid var(--line);
+      background:none;
+      color:var(--muted);
+      border-radius:10px;
+      padding:8px;
+      font-size:12px;
+      cursor:pointer;
+      touch-action:manipulation;
+    }
+    .dex-reset.armed{border-color:var(--bad);color:var(--bad);font-weight:700}
     .discovery-overlay{
       position:fixed;inset:0;
       background:rgba(15,12,9,.94);
@@ -583,6 +595,7 @@
         <button class="dex-close" id="dexClose" aria-label="図鑑を閉じる">×</button>
       </div>
       <div class="collection dex-list" id="dexList"></div>
+      <button class="dex-reset" id="dexReset">図鑑をリセット</button>
     </div>
   </div>
 
@@ -1202,6 +1215,26 @@
     $("dexModal").hidden = false;
   });
   $("dexClose").addEventListener("click", () => { $("dexModal").hidden = true; });
+  $("dexReset").addEventListener("click", () => {
+    const btn = $("dexReset");
+    if(!btn.classList.contains("armed")){
+      btn.classList.add("armed");
+      btn.textContent = "本当にリセットする？(もう一度タップ)";
+      clearTimeout(ui.dexResetArmTimer);
+      ui.dexResetArmTimer = setTimeout(() => {
+        btn.classList.remove("armed");
+        btn.textContent = "図鑑をリセット";
+      }, 3000);
+      return;
+    }
+    clearTimeout(ui.dexResetArmTimer);
+    ui.dex = {};
+    ui.newDiscoveries.clear();
+    try{ localStorage.removeItem(DEX_KEY); }catch(e){}
+    btn.classList.remove("armed");
+    btn.textContent = "図鑑をリセット";
+    renderDex();
+  });
   $("dexModal").addEventListener("click", (e) => {
     if(e.target === $("dexModal")) $("dexModal").hidden = true;
   });
