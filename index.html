@@ -369,30 +369,69 @@
     .rarity.rare{background:#efe9fb;color:#6e42bd}
     .rarity.legendary{background:#fff1c8;color:#8a5a00}
     .rarity.unknown{background:#e8e6e3;color:#8a8783}
-    .discovery-pop{
-      position:absolute;
-      left:50%;top:12px;
-      transform:translateX(-50%);
-      background:rgba(20,16,12,.92);
-      color:#fff8e6;
-      border-radius:999px;
-      padding:8px 18px;
-      font-weight:800;font-size:14px;
-      white-space:nowrap;
-      z-index:16;
-      pointer-events:none;
-      opacity:0;
+    .dex-btn{width:100%;margin-top:10px}
+    .dex-modal{
+      position:fixed;inset:0;
+      background:rgba(20,16,12,.55);
+      display:flex;align-items:center;justify-content:center;
+      z-index:40;
+      padding:16px;
     }
-    .discovery-pop.show{animation:discoveryPop 2.4s ease forwards}
-    .discovery-pop.rare{box-shadow:0 0 20px rgba(141,92,230,.75)}
-    .discovery-pop.super{box-shadow:0 0 20px rgba(39,131,222,.75)}
-    .discovery-pop.legendary{box-shadow:0 0 24px rgba(240,178,74,.9)}
-    @keyframes discoveryPop{
-      0%{opacity:0;transform:translateX(-50%) translateY(-10px) scale(.8)}
-      12%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.08)}
-      22%{transform:translateX(-50%) scale(1)}
-      80%{opacity:1}
-      100%{opacity:0}
+    .dex-modal[hidden]{display:none}
+    .dex-panel{
+      background:#fff;
+      border-radius:20px;
+      box-shadow:var(--shadow);
+      width:min(440px,100%);
+      max-height:min(640px,88vh);
+      display:flex;flex-direction:column;
+      padding:16px;
+    }
+    .dex-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .dex-head h2{margin:0;font-size:17px}
+    .dex-close{
+      border:0;background:#F1EFEC;border-radius:50%;
+      width:34px;height:34px;font-size:17px;font-weight:700;
+      cursor:pointer;touch-action:manipulation;color:var(--ink);
+    }
+    .dex-list{max-height:none;flex:1;overflow:auto}
+    .discovery-overlay{
+      position:fixed;inset:0;
+      background:rgba(15,12,9,.94);
+      z-index:50;
+      display:flex;flex-direction:column;
+      align-items:center;justify-content:center;
+      gap:14px;text-align:center;
+      cursor:pointer;
+      padding:24px;
+    }
+    .discovery-overlay[hidden]{display:none}
+    .discovery-overlay .d-label{
+      color:#ffd873;font-weight:900;
+      font-size:clamp(24px,6vw,36px);
+      text-shadow:0 0 18px rgba(255,216,115,.6);
+      animation:bannerPop .6s cubic-bezier(.2,1.4,.4,1) both;
+    }
+    .discovery-overlay .d-emoji{
+      font-size:clamp(80px,22vw,130px);
+      line-height:1.1;
+      animation:discoverySpin .9s cubic-bezier(.2,1.2,.3,1) both;
+      filter:drop-shadow(0 0 28px rgba(255,216,115,.6));
+    }
+    .discovery-overlay.rare .d-emoji{filter:drop-shadow(0 0 28px rgba(141,92,230,.8))}
+    .discovery-overlay.super .d-emoji{filter:drop-shadow(0 0 28px rgba(39,131,222,.8))}
+    .discovery-overlay .d-name{
+      color:#fff8e6;font-weight:800;
+      font-size:clamp(22px,5vw,30px);
+      animation:bannerFade .5s ease .2s both;
+    }
+    .discovery-overlay .d-name .rarity{margin-left:8px;vertical-align:middle}
+    .discovery-overlay .d-registered{color:#fff8e6;opacity:.85;font-size:15px;animation:bannerFade .5s ease .35s both}
+    .discovery-overlay .d-hint{color:#fff8e6;opacity:.6;font-size:12px;animation:bannerFade .5s ease .6s both}
+    @keyframes discoverySpin{
+      0%{opacity:0;transform:scale(.2) rotate(-30deg)}
+      60%{opacity:1;transform:scale(1.18) rotate(6deg)}
+      100%{opacity:1;transform:scale(1) rotate(0)}
     }
     .toast{
       min-height:48px;
@@ -495,7 +534,6 @@
       <div class="machine">
         <div class="griddle" id="griddle"></div>
         <div class="float-layer" id="floatLayer" aria-hidden="true"></div>
-        <div class="discovery-pop" id="discoveryPop" aria-live="polite"></div>
         <div class="stage-banner" id="stageBanner"></div>
         <div class="status">
           <span id="heatLabel">火力：ふつう</span>
@@ -531,11 +569,24 @@
       </section>
 
       <section class="card">
-        <h2>具材図鑑(<span id="dexProgress">0/14</span>)</h2>
+        <h2>今回見つけた具材</h2>
         <div class="collection" id="collection"></div>
+        <button class="action secondary dex-btn" id="dexBtn">具材図鑑を見る</button>
       </section>
     </aside>
   </main>
+
+  <div class="dex-modal" id="dexModal" hidden>
+    <div class="dex-panel">
+      <div class="dex-head">
+        <h2>具材図鑑(<span id="dexProgress">0/14</span>)</h2>
+        <button class="dex-close" id="dexClose" aria-label="図鑑を閉じる">×</button>
+      </div>
+      <div class="collection dex-list" id="dexList"></div>
+    </div>
+  </div>
+
+  <div class="discovery-overlay" id="discoveryOverlay" hidden></div>
 
 <script>
 (() => {
@@ -592,43 +643,51 @@
 
   const state = {
     running:false, level:1, score:0, coins:0, time:60, heat:HEAT_LEVELS[0].value,
-    holes:[], seen:new Set(), combo:0, tick:null, lastResult:null
+    holes:[], seen:new Set(), combo:0, tick:null, lastResult:null, newFinds:[]
   };
   const ui = {
     scoreAnimCurrent:0, scoreRAF:null,
     trayOverflowCount:0, bannerTimer:null,
     restartArmed:false, restartArmTimer:null,
-    dex:loadDex(), newDiscoveries:new Set(), discoveryPopTimer:null
+    dex:loadDex(), newDiscoveries:new Set(), discoveryQueue:[]
   };
 
   function saveDex(){
     try{ localStorage.setItem(DEX_KEY, JSON.stringify(ui.dex)); }catch(e){}
-  }
-  function showDiscoveryPop(ing){
-    const pop = $("discoveryPop");
-    if(!pop) return;
-    pop.textContent = `✨新発見！ ${ing.emoji}${ing.name}(${RARITY[ing.rarity].label})`;
-    pop.className = "discovery-pop " + ing.rarity;
-    void pop.offsetWidth;
-    pop.classList.add("show");
-    clearTimeout(ui.discoveryPopTimer);
-    ui.discoveryPopTimer = setTimeout(() => pop.classList.remove("show"), 2500);
   }
   function recordDiscovery(ing){
     if(ui.dex[ing.name]) return;
     ui.dex[ing.name] = { collected: 0, first: new Date().toISOString() };
     ui.newDiscoveries.add(ing.name);
     saveDex();
-    if(ing.rarity !== "normal"){
-      showDiscoveryPop(ing);
-      vibrate([20, 60, 20, 60, 40]);
-    }
-    renderDex();
+    if(ing.rarity !== "normal") state.newFinds.push(ing);
   }
   function recordCollected(name){
     if(!ui.dex[name]) ui.dex[name] = { collected: 0, first: new Date().toISOString() };
     ui.dex[name].collected += 1;
     saveDex();
+  }
+  function showNextDiscovery(){
+    const overlay = $("discoveryOverlay");
+    const ing = ui.discoveryQueue.shift();
+    if(!ing){
+      overlay.hidden = true;
+      return;
+    }
+    overlay.className = "discovery-overlay " + ing.rarity;
+    overlay.innerHTML = `
+      <div class="d-label">✨ 新発見！ ✨</div>
+      <div class="d-emoji">${ing.emoji}</div>
+      <div class="d-name">${ing.name}<span class="rarity ${RARITY[ing.rarity].badgeCls}">${RARITY[ing.rarity].label}</span></div>
+      <div class="d-registered">具材図鑑に登録された！</div>
+      <div class="d-hint">タップで${ui.discoveryQueue.length ? "次へ" : "閉じる"}</div>`;
+    overlay.hidden = false;
+    vibrate([20, 60, 20, 60, 40]);
+  }
+  function celebrateNewFinds(finds){
+    if(!finds.length) return;
+    ui.discoveryQueue = finds.slice();
+    showNextDiscovery();
   }
 
   const $ = id => document.getElementById(id);
@@ -856,12 +915,18 @@
     $("boostBtn").textContent = state.heat === HEAT_LEVELS[HEAT_LEVELS.length - 1].value ? "火力を戻す" : "火力UP";
     $("queue").textContent = "解放具材：" + ingredients.filter(i=>i.unlock<=state.level).length + "種";
     state.holes.forEach((h, i) => updateHole(h, i));
-    renderDex();
+    renderCollection();
+  }
+  function renderCollection(){
+    const found = ingredients.filter(i => state.seen.has(i.name));
+    $("collection").innerHTML = found.length ? found.map(i => {
+      return `<div class="ingredient"><span>${i.emoji}</span><strong>${i.name}</strong><span class="rarity ${RARITY[i.rarity].badgeCls}">${RARITY[i.rarity].label}</span></div>`;
+    }).join("") : `<div class="guide">まだ未発見。まずは焼いてみよう。</div>`;
   }
   function renderDex(){
     const discoveredCount = ingredients.filter(i => ui.dex[i.name]).length;
     $("dexProgress").textContent = `${discoveredCount}/${ingredients.length}`;
-    $("collection").innerHTML = ingredients.map(i => {
+    $("dexList").innerHTML = ingredients.map(i => {
       const entry = ui.dex[i.name];
       if(!entry){
         return `<div class="ingredient undiscovered"><span>❓</span><strong>？？？</strong><span class="dex-count"></span><span class="rarity unknown">？</span></div>`;
@@ -1064,6 +1129,7 @@
         }
       });
     }
+    celebrateNewFinds(state.newFinds);
   }
   function tick(){
     if(!state.running) return;
@@ -1098,6 +1164,9 @@
     Object.assign(state,{running:true, level:1, score:0, coins:0, time:60, heat:HEAT_LEVELS[0].value, combo:0});
     state.holes = createHoles();
     state.seen = new Set();
+    state.newFinds = [];
+    ui.discoveryQueue = [];
+    $("discoveryOverlay").hidden = true;
     ui.scoreAnimCurrent = 0;
     $("score").textContent = 0;
     resetTray();
@@ -1126,6 +1195,18 @@
     state.heat = next.value;
     setMessage(state.heat === HEAT_LEVELS[0].value ? "火力をふつうに戻した。" : "火力アップ！焦げやすいので急いで回収。");
     render();
+  });
+  $("discoveryOverlay").addEventListener("click", showNextDiscovery);
+  $("dexBtn").addEventListener("click", () => {
+    renderDex();
+    $("dexModal").hidden = false;
+  });
+  $("dexClose").addEventListener("click", () => { $("dexModal").hidden = true; });
+  $("dexModal").addEventListener("click", (e) => {
+    if(e.target === $("dexModal")) $("dexModal").hidden = true;
+  });
+  document.addEventListener("keydown", (e) => {
+    if(e.key === "Escape") $("dexModal").hidden = true;
   });
   state.holes = createHoles();
   render();
