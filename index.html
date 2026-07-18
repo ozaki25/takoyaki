@@ -347,7 +347,7 @@
     }
     .ingredient{
       display:grid;
-      grid-template-columns:auto 1fr auto;
+      grid-template-columns:auto 1fr auto auto;
       gap:8px;
       align-items:center;
       border:1px solid var(--line);
@@ -356,9 +356,44 @@
       background:#F9F8F7;
       font-size:13px;
     }
+    .ingredient.undiscovered{opacity:.55;filter:grayscale(1)}
+    .dex-count{font-size:11px;color:var(--muted);font-weight:700;white-space:nowrap}
+    .new-flag{
+      display:inline-block;
+      background:var(--bad);color:#fff;
+      font-size:9px;font-weight:800;
+      border-radius:6px;padding:1px 5px;margin-left:6px;
+      vertical-align:middle;
+    }
     .rarity{font-size:11px;border-radius:999px;padding:2px 8px;background:#E5F2FC;color:#1b5e9f;font-weight:700}
     .rarity.rare{background:#efe9fb;color:#6e42bd}
     .rarity.legendary{background:#fff1c8;color:#8a5a00}
+    .rarity.unknown{background:#e8e6e3;color:#8a8783}
+    .discovery-pop{
+      position:absolute;
+      left:50%;top:12px;
+      transform:translateX(-50%);
+      background:rgba(20,16,12,.92);
+      color:#fff8e6;
+      border-radius:999px;
+      padding:8px 18px;
+      font-weight:800;font-size:14px;
+      white-space:nowrap;
+      z-index:16;
+      pointer-events:none;
+      opacity:0;
+    }
+    .discovery-pop.show{animation:discoveryPop 2.4s ease forwards}
+    .discovery-pop.rare{box-shadow:0 0 20px rgba(141,92,230,.75)}
+    .discovery-pop.super{box-shadow:0 0 20px rgba(39,131,222,.75)}
+    .discovery-pop.legendary{box-shadow:0 0 24px rgba(240,178,74,.9)}
+    @keyframes discoveryPop{
+      0%{opacity:0;transform:translateX(-50%) translateY(-10px) scale(.8)}
+      12%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.08)}
+      22%{transform:translateX(-50%) scale(1)}
+      80%{opacity:1}
+      100%{opacity:0}
+    }
     .toast{
       min-height:48px;
       border-radius:14px;
@@ -460,6 +495,7 @@
       <div class="machine">
         <div class="griddle" id="griddle"></div>
         <div class="float-layer" id="floatLayer" aria-hidden="true"></div>
+        <div class="discovery-pop" id="discoveryPop" aria-live="polite"></div>
         <div class="stage-banner" id="stageBanner"></div>
         <div class="status">
           <span id="heatLabel">火力：ふつう</span>
@@ -495,7 +531,7 @@
       </section>
 
       <section class="card">
-        <h2>今回見つけた具材</h2>
+        <h2>具材図鑑(<span id="dexProgress">0/14</span>)</h2>
         <div class="collection" id="collection"></div>
       </section>
     </aside>
@@ -545,6 +581,14 @@
   const LEVEL_SCORE_STEP = 180;
   const TRAY_VISIBLE_CAP = 30;
   const HIGHSCORE_KEY = "takoyakiGachaHighScores";
+  const DEX_KEY = "takoyakiGachaDex";
+
+  function loadDex(){
+    try{
+      const dex = JSON.parse(localStorage.getItem(DEX_KEY) || "{}");
+      return dex && typeof dex === "object" && !Array.isArray(dex) ? dex : {};
+    }catch(e){ return {}; }
+  }
 
   const state = {
     running:false, level:1, score:0, coins:0, time:60, heat:HEAT_LEVELS[0].value,
@@ -553,8 +597,39 @@
   const ui = {
     scoreAnimCurrent:0, scoreRAF:null,
     trayOverflowCount:0, bannerTimer:null,
-    restartArmed:false, restartArmTimer:null
+    restartArmed:false, restartArmTimer:null,
+    dex:loadDex(), newDiscoveries:new Set(), discoveryPopTimer:null
   };
+
+  function saveDex(){
+    try{ localStorage.setItem(DEX_KEY, JSON.stringify(ui.dex)); }catch(e){}
+  }
+  function showDiscoveryPop(ing){
+    const pop = $("discoveryPop");
+    if(!pop) return;
+    pop.textContent = `✨新発見！ ${ing.emoji}${ing.name}(${RARITY[ing.rarity].label})`;
+    pop.className = "discovery-pop " + ing.rarity;
+    void pop.offsetWidth;
+    pop.classList.add("show");
+    clearTimeout(ui.discoveryPopTimer);
+    ui.discoveryPopTimer = setTimeout(() => pop.classList.remove("show"), 2500);
+  }
+  function recordDiscovery(ing){
+    if(ui.dex[ing.name]) return;
+    ui.dex[ing.name] = { collected: 0, first: new Date().toISOString() };
+    ui.newDiscoveries.add(ing.name);
+    saveDex();
+    if(ing.rarity !== "normal"){
+      showDiscoveryPop(ing);
+      vibrate([20, 60, 20, 60, 40]);
+    }
+    renderDex();
+  }
+  function recordCollected(name){
+    if(!ui.dex[name]) ui.dex[name] = { collected: 0, first: new Date().toISOString() };
+    ui.dex[name].collected += 1;
+    saveDex();
+  }
 
   const $ = id => document.getElementById(id);
   const griddle = $("griddle");
@@ -781,13 +856,19 @@
     $("boostBtn").textContent = state.heat === HEAT_LEVELS[HEAT_LEVELS.length - 1].value ? "火力を戻す" : "火力UP";
     $("queue").textContent = "解放具材：" + ingredients.filter(i=>i.unlock<=state.level).length + "種";
     state.holes.forEach((h, i) => updateHole(h, i));
-    renderCollection();
+    renderDex();
   }
-  function renderCollection(){
-    const found = ingredients.filter(i => state.seen.has(i.name));
-    $("collection").innerHTML = found.length ? found.map(i => {
-      return `<div class="ingredient"><span>${i.emoji}</span><strong>${i.name}</strong><span class="rarity ${RARITY[i.rarity].badgeCls}">${RARITY[i.rarity].label}</span></div>`;
-    }).join("") : `<div class="guide">まだ未発見。まずは焼いてみよう。</div>`;
+  function renderDex(){
+    const discoveredCount = ingredients.filter(i => ui.dex[i.name]).length;
+    $("dexProgress").textContent = `${discoveredCount}/${ingredients.length}`;
+    $("collection").innerHTML = ingredients.map(i => {
+      const entry = ui.dex[i.name];
+      if(!entry){
+        return `<div class="ingredient undiscovered"><span>❓</span><strong>？？？</strong><span class="dex-count"></span><span class="rarity unknown">？</span></div>`;
+      }
+      const newBadge = ui.newDiscoveries.has(i.name) ? `<span class="new-flag">NEW</span>` : "";
+      return `<div class="ingredient"><span>${i.emoji}</span><strong>${i.name}${newBadge}</strong><span class="dex-count">×${entry.collected}</span><span class="rarity ${RARITY[i.rarity].badgeCls}">${RARITY[i.rarity].label}</span></div>`;
+    }).join("");
   }
   function setMessage(text){ $("message").innerHTML = text; }
 
@@ -905,6 +986,7 @@
       h.ball = randomIngredient(); h.age = 0; h.flipped = false;
       setMessage(`${h.ball.emoji} ${h.ball.name}入りを投入！`);
       state.seen.add(h.ball.name);
+      recordDiscovery(h.ball);
       vibrate(10);
     } else if(!h.flipped){
       h.flipped = true; h.age = Math.max(2.1, h.age);
@@ -934,6 +1016,7 @@
       }
       showFloatScore(index, gained, rarity, state.combo);
       if(gained > 0){
+        recordCollected(name);
         if(isSpecial) spawnParticles(index, rarity !== "normal" ? 9 : 6, "spark");
         flyToTray(index, emoji);
       }else{
